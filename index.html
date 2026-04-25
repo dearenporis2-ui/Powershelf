@@ -1868,10 +1868,12 @@ async function loadAdminRequests() {
       list.innerHTML = '<div class="admin-empty">No book requests yet.</div>';
       return;
     }
-    alert('Found ' + requests.length + ' requests. First one: ' + JSON.stringify(requests[0]));
-    list.innerHTML = requests.map(r => renderReqCard(r)).join('');
+    try {
+      list.innerHTML = requests.map(r => renderReqCard(r)).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="admin-empty">Render error: ' + e.message + '</div>';
+    }
   } catch(e) {
-    alert('loadAdminRequests error: ' + e.message);
     list.innerHTML = '<div class="admin-empty">Error: ' + (e.message || 'Could not load requests.') + '</div>';
   }
 }
