@@ -688,6 +688,182 @@ body::before {
 .toc-name { font-family: 'EB Garamond', serif; font-size: 15px; color: var(--text-dim); flex: 1; }
 .toc-dot { flex: 1; border-bottom: 1px dotted rgba(201,168,76,0.2); min-width: 20px; }
 .toc-page { font-size: 12px; color: var(--muted); }
+
+/* ─── BOOK REQUEST ─── */
+.request-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(201,168,76,0.08); border: 0.5px solid rgba(201,168,76,0.35);
+  color: var(--gold); border-radius: 7px; padding: 8px 16px;
+  font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; white-space: nowrap; transition: background 0.2s;
+  margin-left: 8px;
+}
+.request-btn:hover { background: rgba(201,168,76,0.18); }
+
+/* ─── REQUEST MODAL ─── */
+.req-modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,0.7); align-items: center; justify-content: center;
+}
+.req-modal-overlay.visible { display: flex; }
+.req-modal {
+  background: var(--card-bg); border: 0.5px solid var(--border-bright);
+  border-radius: 14px; padding: 28px 32px; width: min(480px, 92vw);
+  animation: fadeSlideIn 0.3s var(--ease) both;
+}
+.req-modal h3 {
+  font-family: 'Playfair Display', serif; font-size: 18px;
+  color: var(--gold); margin-bottom: 6px;
+}
+.req-modal p { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+.req-anon-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(76,154,138,0.12); border: 0.5px solid rgba(76,154,138,0.35);
+  color: var(--teal); border-radius: 20px; font-size: 10px;
+  padding: 3px 10px; font-weight: 500; letter-spacing: 0.06em;
+  margin-bottom: 14px; text-transform: uppercase;
+}
+.req-label {
+  display: block; font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+}
+.req-input, .req-textarea {
+  width: 100%; background: #0a0806; border: 0.5px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; font-size: 14px;
+  color: var(--text); font-family: 'DM Sans', sans-serif; outline: none;
+  margin-bottom: 16px; transition: border-color 0.2s;
+}
+.req-textarea { min-height: 80px; resize: vertical; }
+.req-input:focus, .req-textarea:focus { border-color: var(--border-bright); }
+.req-actions { display: flex; gap: 10px; margin-top: 4px; }
+.req-submit {
+  flex: 1; padding: 11px; border-radius: 8px; border: none;
+  background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+  color: var(--ink); font-size: 13px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif; cursor: pointer;
+  transition: opacity 0.2s; letter-spacing: 0.02em;
+}
+.req-submit:hover { opacity: 0.9; }
+.req-submit:disabled { opacity: 0.5; cursor: default; }
+.req-cancel {
+  padding: 11px 18px; border-radius: 8px;
+  border: 0.5px solid var(--border); background: none;
+  color: var(--muted); font-size: 13px; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: color 0.2s, border-color 0.2s;
+}
+.req-cancel:hover { color: var(--text-dim); border-color: var(--muted); }
+.req-success {
+  text-align: center; padding: 20px 0;
+  font-family: 'EB Garamond', serif; font-size: 17px; color: var(--teal);
+  font-style: italic;
+}
+
+/* ─── ADMIN PANEL ─── */
+.admin-crown { font-size: 13px; margin-left: 4px; }
+.admin-btn {
+  background: rgba(201,168,76,0.08); border: 0.5px solid rgba(201,168,76,0.3);
+  color: var(--gold); border-radius: 6px; padding: 5px 12px;
+  font-size: 11px; font-family: 'DM Sans', sans-serif; cursor: pointer;
+  transition: background 0.2s; white-space: nowrap;
+}
+.admin-btn:hover { background: rgba(201,168,76,0.15); }
+
+#view-admin { background: var(--ink); min-height: 100vh; }
+.admin-wrap { max-width: 860px; margin: 0 auto; padding: 40px 28px; }
+.admin-header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 32px;
+  padding-bottom: 20px; border-bottom: 0.5px solid var(--border);
+}
+.admin-header h1 {
+  font-family: 'Playfair Display', serif; font-size: 22px; color: var(--gold);
+}
+.admin-back {
+  background: none; border: 0.5px solid var(--border); color: var(--muted);
+  border-radius: 6px; padding: 7px 13px; cursor: pointer; font-size: 12px;
+  font-family: 'DM Sans', sans-serif; transition: color 0.2s, border-color 0.2s;
+}
+.admin-back:hover { color: var(--text); border-color: var(--muted); }
+
+.admin-tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+.admin-tab {
+  padding: 8px 18px; border-radius: 8px; font-size: 12px; font-weight: 500;
+  cursor: pointer; color: var(--muted); background: none;
+  border: 0.5px solid transparent; font-family: 'DM Sans', sans-serif;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+.admin-tab:hover { color: var(--text-dim); }
+.admin-tab.active {
+  color: var(--gold); background: rgba(201,168,76,0.07);
+  border-color: rgba(201,168,76,0.3);
+}
+
+.admin-section { display: none; }
+.admin-section.active { display: block; }
+
+.admin-stat-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+  gap: 12px; margin-bottom: 28px;
+}
+.admin-stat {
+  background: var(--card-bg); border: 0.5px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.admin-stat-num {
+  font-family: 'Playfair Display', serif; font-size: 28px;
+  color: var(--gold); font-weight: 900; line-height: 1;
+}
+.admin-stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.req-card {
+  background: var(--card-bg); border: 0.5px solid var(--border);
+  border-radius: 10px; padding: 18px 20px; margin-bottom: 10px;
+  animation: fadeSlideIn 0.3s var(--ease) both;
+}
+.req-card-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.req-card-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+.req-card-meta { flex: 1; min-width: 0; }
+.req-card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.req-card-author { font-size: 12px; color: var(--muted); }
+.req-card-date { font-size: 10px; color: var(--muted); letter-spacing: 0.04em; margin-top: 4px; }
+.req-card-note { font-family: 'EB Garamond', serif; font-size: 15px; color: var(--text-dim); line-height: 1.6; padding: 10px 14px; background: rgba(255,255,255,0.02); border-radius: 6px; border-left: 2px solid var(--border); margin-top: 10px; }
+.req-card-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.req-action-btn {
+  padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif; cursor: pointer; border: 0.5px solid var(--border);
+  background: none; color: var(--muted); transition: all 0.2s; letter-spacing: 0.03em;
+}
+.req-action-btn:hover { color: var(--text); border-color: var(--muted); }
+.req-action-btn.done { color: var(--teal); border-color: rgba(76,154,138,0.4); background: rgba(76,154,138,0.06); }
+.req-action-btn.dismiss { color: var(--red); border-color: rgba(201,76,76,0.3); }
+.req-action-btn.dismiss:hover { background: rgba(201,76,76,0.06); }
+.req-status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9.5px; padding: 3px 9px; border-radius: 20px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.badge-pending { background: rgba(201,168,76,0.1); color: var(--gold); border: 0.5px solid rgba(201,168,76,0.3); }
+.badge-added { background: rgba(76,154,138,0.1); color: var(--teal); border: 0.5px solid rgba(76,154,138,0.3); }
+.badge-dismissed { background: rgba(100,90,70,0.12); color: var(--muted); border: 0.5px solid rgba(100,90,70,0.18); }
+
+.admin-empty { text-align: center; padding: 60px 20px; color: var(--muted); font-family: 'EB Garamond', serif; font-size: 17px; font-style: italic; }
+
+/* ─── USERS TABLE ─── */
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th {
+  text-align: left; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); padding: 10px 14px; border-bottom: 0.5px solid var(--border);
+}
+.admin-table td {
+  padding: 12px 14px; font-size: 13px; color: var(--text-dim);
+  border-bottom: 0.5px solid rgba(201,168,76,0.06);
+}
+.admin-table tr:hover td { background: rgba(255,255,255,0.01); }
+
+/* mobile */
+@media (max-width: 680px) {
+  .req-modal { padding: 20px; }
+  .admin-wrap { padding: 28px 16px; }
+}
 </style>
 </head>
 <body>
@@ -740,6 +916,7 @@ body::before {
     <div class="library-hero">
       <h1>The Shelf of Power</h1>
       <p class="hero-subtitle">Timeless wisdom, curated for the modern strategist</p>
+    <div style="margin-top:18px;"><button class="request-btn" onclick="openRequestModal()">📩 Request a Book</button></div>
     </div>
     <div id="continueBanner" class="continue-banner">
       <div class="continue-icon">📖</div>
@@ -882,6 +1059,69 @@ body::before {
     </div>
   </div>
 
+
+  <!-- ADMIN VIEW -->
+  <div class="view" id="view-admin">
+    <div class="admin-wrap">
+      <div class="admin-header">
+        <button class="admin-back" onclick="showView('library')">← Library</button>
+        <h1>👑 Admin Panel</h1>
+      </div>
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchAdminTab('requests', this)">📩 Book Requests</button>
+        <button class="admin-tab" onclick="switchAdminTab('stats', this)">📊 Stats</button>
+        <button class="admin-tab" onclick="switchAdminTab('activity', this)">🕐 Activity</button>
+      </div>
+
+      <!-- REQUESTS -->
+      <div class="admin-section active" id="adminSection-requests">
+        <div id="adminRequestsList">
+          <div class="admin-empty">Loading requests…</div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="admin-section" id="adminSection-stats">
+        <div class="admin-stat-row" id="adminStats">
+          <div class="admin-stat"><div class="admin-stat-num" id="statTotalReq">—</div><div class="admin-stat-label">Total Requests</div></div>
+          <div class="admin-stat"><div class="admin-stat-num" id="statPending">—</div><div class="admin-stat-label">Pending</div></div>
+          <div class="admin-stat"><div class="admin-stat-num" id="statAdded">—</div><div class="admin-stat-label">Added to Library</div></div>
+          <div class="admin-stat"><div class="admin-stat-num" id="statBooks">3</div><div class="admin-stat-label">Books Available</div></div>
+        </div>
+        <div style="font-family:'EB Garamond',serif;font-size:15px;color:var(--muted);font-style:italic;text-align:center;padding:20px;">
+          More analytics coming soon.
+        </div>
+      </div>
+
+      <!-- ACTIVITY -->
+      <div class="admin-section" id="adminSection-activity">
+        <div id="adminActivityList">
+          <div class="admin-empty">No activity log yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUEST MODAL -->
+  <div class="req-modal-overlay" id="reqModal">
+    <div class="req-modal">
+      <h3>Request a Book</h3>
+      <p>Can't find a book you're looking for? Submit a request and we'll consider adding it to the library.</p>
+      <div class="req-anon-badge">🕵️ 100% Anonymous — no identity collected</div>
+      <label class="req-label">Book Title *</label>
+      <input class="req-input" id="reqTitle" placeholder="e.g. Meditations by Marcus Aurelius" />
+      <label class="req-label">Author</label>
+      <input class="req-input" id="reqAuthor" placeholder="Optional" />
+      <label class="req-label">Why should we add it?</label>
+      <textarea class="req-textarea" id="reqNote" placeholder="Tell us why this book belongs in the library (optional)…"></textarea>
+      <div id="reqSuccess" class="req-success" style="display:none;">✓ Request submitted! We'll review it soon.</div>
+      <div class="req-actions" id="reqActions">
+        <button class="req-cancel" onclick="closeRequestModal()">Cancel</button>
+        <button class="req-submit" id="reqSubmitBtn" onclick="submitBookRequest()">Submit Request</button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- #app -->
 
 <script>
@@ -913,15 +1153,18 @@ try {
     if (user) {
       authScreen.classList.remove('visible');
       const initials = (user.email || 'U')[0].toUpperCase();
+      const isAdmin = user.email === ADMIN_EMAIL;
       navUser.innerHTML = `
         <div class="user-badge">
           <div class="user-avatar">${initials}</div>
-          <div class="user-email">${user.email}</div>
+          <div class="user-email">${user.email}${isAdmin ? '<span class="admin-crown" title="Admin">👑</span>' : ''}</div>
         </div>
+        ${isAdmin ? '<button class="admin-btn" onclick="showAdminPanel()">Admin Panel</button>' : ''}
         <button class="sign-out-btn" onclick="signOut()">Sign out</button>
       `;
       loadProgress();
       loadAnnotations();
+      if (isAdmin) loadAdminData();
     } else {
       navUser.innerHTML = `<button class="sign-in-btn" onclick="showAuth()">Sign In</button>`;
     }
@@ -1848,6 +2091,185 @@ async function loadAnnotations() {
   const data = await fbGet('annotations');
   if (Array.isArray(data)) { annotations = data; renderNotes(); }
 }
+// ════════════════════════════════════
+//  ADMIN CONFIG
+// ════════════════════════════════════
+const ADMIN_EMAIL = 'dearenporis2@gmail.com';
+
+// ════════════════════════════════════
+//  ADMIN PANEL
+// ════════════════════════════════════
+function showAdminPanel() {
+  showView('admin');
+  loadAdminData();
+}
+
+function switchAdminTab(tab, btn) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('adminSection-' + tab).classList.add('active');
+  if (tab === 'requests') loadAdminRequests();
+  if (tab === 'stats') loadAdminStats();
+  if (tab === 'activity') loadAdminActivity();
+}
+
+async function loadAdminData() {
+  loadAdminRequests();
+  loadAdminStats();
+}
+
+async function loadAdminRequests() {
+  if (!db) return;
+  const list = document.getElementById('adminRequestsList');
+  if (!list) return;
+  list.innerHTML = '<div class="admin-empty">Loading…</div>';
+  try {
+    const snap = await db.ref('powershelf_requests').orderByChild('ts').once('value');
+    const requests = [];
+    snap.forEach(child => requests.unshift({ id: child.key, ...child.val() }));
+    if (!requests.length) {
+      list.innerHTML = '<div class="admin-empty">No book requests yet.</div>';
+      return;
+    }
+    list.innerHTML = requests.map(r => renderReqCard(r)).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="admin-empty">Could not load requests.</div>';
+  }
+}
+
+function renderReqCard(r) {
+  const date = new Date(r.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const statusMap = {
+    pending: '<span class="req-status-badge badge-pending">⏳ Pending</span>',
+    added: '<span class="req-status-badge badge-added">✓ Added</span>',
+    dismissed: '<span class="req-status-badge badge-dismissed">✕ Dismissed</span>'
+  };
+  const status = statusMap[r.status] || statusMap.pending;
+  const noteHtml = r.note ? `<div class="req-card-note">${escapeHtml(r.note)}</div>` : '';
+  const actionsHtml = r.status === 'pending' ? `
+    <button class="req-action-btn done" onclick="updateRequest('${r.id}', 'added')">✓ Mark Added</button>
+    <button class="req-action-btn dismiss" onclick="updateRequest('${r.id}', 'dismissed')">✕ Dismiss</button>
+  ` : `<button class="req-action-btn" onclick="updateRequest('${r.id}', 'pending')">↩ Reset to Pending</button>`;
+  return `
+    <div class="req-card" id="reqcard-${r.id}">
+      <div class="req-card-top">
+        <div class="req-card-icon">📚</div>
+        <div class="req-card-meta">
+          <div class="req-card-title">${escapeHtml(r.title)}</div>
+          ${r.author ? `<div class="req-card-author">by ${escapeHtml(r.author)}</div>` : ''}
+          <div class="req-card-date">${date} · ${status}</div>
+        </div>
+      </div>
+      ${noteHtml}
+      <div class="req-card-actions">${actionsHtml}</div>
+    </div>
+  `;
+}
+
+async function updateRequest(id, status) {
+  if (!db) return;
+  try {
+    await db.ref('powershelf_requests/' + id).update({ status });
+    showStatus(status === 'added' ? 'Marked as added ✓' : status === 'dismissed' ? 'Dismissed' : 'Reset to pending', 'saved');
+    loadAdminRequests();
+    loadAdminStats();
+  } catch(e) {
+    showStatus('Error updating', 'error');
+  }
+}
+
+async function loadAdminStats() {
+  if (!db) return;
+  try {
+    const snap = await db.ref('powershelf_requests').once('value');
+    let total = 0, pending = 0, added = 0;
+    snap.forEach(child => {
+      total++;
+      const s = child.val().status || 'pending';
+      if (s === 'pending') pending++;
+      if (s === 'added') added++;
+    });
+    const el = id => document.getElementById(id);
+    if (el('statTotalReq')) el('statTotalReq').textContent = total;
+    if (el('statPending')) el('statPending').textContent = pending;
+    if (el('statAdded')) el('statAdded').textContent = added;
+  } catch(e) {}
+}
+
+async function loadAdminActivity() {
+  if (!db) return;
+  const list = document.getElementById('adminActivityList');
+  if (!list) return;
+  try {
+    const snap = await db.ref('powershelf_requests').orderByChild('ts').limitToLast(20).once('value');
+    const items = [];
+    snap.forEach(child => items.unshift(child.val()));
+    if (!items.length) {
+      list.innerHTML = '<div class="admin-empty">No activity yet.</div>';
+      return;
+    }
+    list.innerHTML = items.map(r => {
+      const date = new Date(r.ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<div class="req-card"><span style="color:var(--muted);font-size:11px;">${date}</span> — Book requested: <strong style="color:var(--text);">${escapeHtml(r.title)}</strong></div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="admin-empty">Could not load activity.</div>';
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════
+//  BOOK REQUEST MODAL
+// ════════════════════════════════════
+function openRequestModal() {
+  document.getElementById('reqTitle').value = '';
+  document.getElementById('reqAuthor').value = '';
+  document.getElementById('reqNote').value = '';
+  document.getElementById('reqSuccess').style.display = 'none';
+  document.getElementById('reqActions').style.display = 'flex';
+  document.getElementById('reqModal').classList.add('visible');
+}
+
+function closeRequestModal() {
+  document.getElementById('reqModal').classList.remove('visible');
+}
+
+async function submitBookRequest() {
+  const title = document.getElementById('reqTitle').value.trim();
+  if (!title) {
+    document.getElementById('reqTitle').focus();
+    return;
+  }
+  const author = document.getElementById('reqAuthor').value.trim();
+  const note = document.getElementById('reqNote').value.trim();
+  const btn = document.getElementById('reqSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+  try {
+    const ref = db ? db.ref('powershelf_requests').push() : null;
+    if (ref) {
+      await ref.set({ title, author, note, ts: Date.now(), status: 'pending' });
+    }
+    document.getElementById('reqActions').style.display = 'none';
+    document.getElementById('reqSuccess').style.display = 'block';
+    setTimeout(closeRequestModal, 2400);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Submit Request';
+    showStatus('Failed to submit', 'error', 3000);
+  }
+}
+
+// Close request modal on overlay click
+document.getElementById('reqModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRequestModal();
+});
+
 </script>
 </body>
 </html>
