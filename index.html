@@ -1987,35 +1987,42 @@ async function submitBookRequest() {
   btn.disabled = true;
   btn.textContent = 'Submitting…';
 
-  // Use Firebase's anonymous sign-in so unauthenticated users can still write
-  let writeDb = db;
-  if (!writeDb) {
+  if (!db) {
     btn.disabled = false;
     btn.textContent = 'Submit Request';
-    showStatus('Database not available', 'error', 3000);
+    alert('Database not available. Please refresh and try again.');
     return;
   }
 
   try {
-    // If no user is signed in, sign in anonymously so the write is allowed
+    // Ensure we have an authenticated user (anonymous if not signed in)
     if (!firebase.auth().currentUser) {
-      await firebase.auth().signInAnonymously();
+      try {
+        await firebase.auth().signInAnonymously();
+      } catch(authErr) {
+        btn.disabled = false;
+        btn.textContent = 'Submit Request';
+        alert('Could not authenticate: ' + authErr.message + '\n\nMake sure Anonymous sign-in is enabled in Firebase.');
+        return;
+      }
     }
-    await writeDb.ref('powershelf_requests').push({
+
+    await db.ref('powershelf_requests').push({
       title,
       author: author || '',
       note: note || '',
       ts: Date.now(),
-      status: 'pending'
+      status: 'pending',
+      userEmail: firebase.auth().currentUser ? (firebase.auth().currentUser.email || 'anonymous') : 'unknown'
     });
+
     document.getElementById('reqActions').style.display = 'none';
     document.getElementById('reqSuccess').style.display = 'block';
     setTimeout(closeRequestModal, 2400);
   } catch(e) {
-    console.error('Request submit error:', e);
     btn.disabled = false;
     btn.textContent = 'Submit Request';
-    showStatus('Failed to submit: ' + (e.message || 'unknown error'), 'error', 4000);
+    alert('Failed to submit request: ' + (e.message || 'unknown error') + '\n\nError code: ' + (e.code || 'none'));
   }
 }
 
