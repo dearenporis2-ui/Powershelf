@@ -1859,16 +1859,18 @@ async function loadAdminRequests() {
   if (!list) return;
   list.innerHTML = '<div class="admin-empty">Loading…</div>';
   try {
-    const snap = await db.ref('powershelf_requests').orderByChild('ts').once('value');
+    const snap = await db.ref('powershelf_requests').once('value');
     const requests = [];
-    snap.forEach(child => requests.unshift({ id: child.key, ...child.val() }));
+    snap.forEach(child => requests.push({ id: child.key, ...child.val() }));
+    // Sort by ts descending (newest first) in JS instead of relying on Firebase index
+    requests.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     if (!requests.length) {
       list.innerHTML = '<div class="admin-empty">No book requests yet.</div>';
       return;
     }
     list.innerHTML = requests.map(r => renderReqCard(r)).join('');
   } catch(e) {
-    list.innerHTML = '<div class="admin-empty">Could not load requests.</div>';
+    list.innerHTML = '<div class="admin-empty">Error: ' + (e.message || 'Could not load requests.') + '</div>';
   }
 }
 
@@ -1936,9 +1938,11 @@ async function loadAdminActivity() {
   const list = document.getElementById('adminActivityList');
   if (!list) return;
   try {
-    const snap = await db.ref('powershelf_requests').orderByChild('ts').limitToLast(20).once('value');
+    const snap = await db.ref('powershelf_requests').once('value');
     const items = [];
-    snap.forEach(child => items.unshift(child.val()));
+    snap.forEach(child => items.push(child.val()));
+    items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    items.splice(20);
     if (!items.length) {
       list.innerHTML = '<div class="admin-empty">No activity yet.</div>';
       return;
