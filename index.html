@@ -1859,22 +1859,24 @@ async function loadAdminRequests() {
   if (!list) return;
   list.innerHTML = '<div class="admin-empty">Loading…</div>';
   try {
-    const snap = await db.ref('powershelf_requests').once('value');
+    const snap = await db.ref('book_requests').once('value');
+    if (!snap.exists()) {
+      list.innerHTML = '<div class="admin-empty">No book requests yet.</div>';
+      return;
+    }
     const requests = [];
-    snap.forEach(child => requests.push({ id: child.key, ...child.val() }));
-    // Sort by ts descending (newest first) in JS instead of relying on Firebase index
+    snap.forEach(child => {
+      const val = child.val();
+      if (val && val.title) requests.push({ id: child.key, ...val });
+    });
     requests.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     if (!requests.length) {
       list.innerHTML = '<div class="admin-empty">No book requests yet.</div>';
       return;
     }
-    try {
-      list.innerHTML = requests.map(r => renderReqCard(r)).join('');
-    } catch(e) {
-      list.innerHTML = '<div class="admin-empty">Render error: ' + e.message + '</div>';
-    }
+    list.innerHTML = requests.map(r => renderReqCard(r)).join('');
   } catch(e) {
-    list.innerHTML = '<div class="admin-empty">Error: ' + (e.message || 'Could not load requests.') + '</div>';
+    list.innerHTML = '<div class="admin-empty">Error loading: ' + e.message + '</div>';
   }
 }
 
@@ -1910,7 +1912,7 @@ function renderReqCard(r) {
 async function updateRequest(id, status) {
   if (!db) return;
   try {
-    await db.ref('powershelf_requests/' + id).update({ status });
+    await db.ref('book_requests/' + id).update({ status });
     showStatus(status === 'added' ? 'Marked as added ✓' : status === 'dismissed' ? 'Dismissed' : 'Reset to pending', 'saved');
     loadAdminRequests();
     loadAdminStats();
@@ -1922,7 +1924,7 @@ async function updateRequest(id, status) {
 async function loadAdminStats() {
   if (!db) return;
   try {
-    const snap = await db.ref('powershelf_requests').once('value');
+    const snap = await db.ref('book_requests').once('value');
     let total = 0, pending = 0, added = 0;
     snap.forEach(child => {
       total++;
@@ -1942,7 +1944,7 @@ async function loadAdminActivity() {
   const list = document.getElementById('adminActivityList');
   if (!list) return;
   try {
-    const snap = await db.ref('powershelf_requests').once('value');
+    const snap = await db.ref('book_requests').once('value');
     const items = [];
     snap.forEach(child => items.push(child.val()));
     items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
@@ -2015,7 +2017,7 @@ async function submitBookRequest() {
       }
     }
 
-    await db.ref('powershelf_requests').push({
+    await db.ref('book_requests').push({
       title,
       author: author || '',
       note: note || '',
