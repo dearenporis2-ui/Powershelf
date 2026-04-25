@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>POWERSHELF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --gold: #c9a84c;
+  --gold-dim: #8a6d2f;
+  --gold-glow: #f0d080;
+  --gold-pale: rgba(201,168,76,0.12);
+  --ink: #0c0a07;
+  --parchment: #1a1710;
+  --card-bg: #131109;
+  --card-hover: #1c1a12;
+  --border: rgba(201,168,76,0.18);
+  --border-bright: rgba(201,168,76,0.45);
+  --text: #e8dfc8;
+  --text-dim: #b8ad96;
+  --muted: #7a7060;
+  --page-bg: #f5f0e4;
+  --page-text: #1a160e;
+  --page-muted: #6b5e42;
+  --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --red: #c94c4c;
+  --teal: #4c9a8a;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+#app { position: relative; z-index: 1; min-height: 100vh; }
+
+/* ─── NAV ─── */
+.nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  height: 56px;
+  border-bottom: 0.5px solid var(--border);
+  background: rgba(12,10,7,0.92);
+  backdrop-filter: blur(16px);
+  position: sticky; top: 0; z-index: 100;
+  gap: 12px;
+}
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px; font-weight: 900; letter-spacing: 0.08em;
+  color: var(--gold);
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.nav-logo span { color: var(--text-dim); font-weight: 400; }
+.nav-logo::before { content: '📚'; font-size: 14px; }
+.nav-tabs { display: flex; gap: 2px; }
+.nav-tab {
+  padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  cursor: pointer; color: var(--muted); background: none; border: none;
+  transition: color 0.2s, background 0.2s;
+  font-family: 'DM Sans', sans-serif; letter-spacing: 0.01em;
+}
+.nav-tab:hover { color: var(--text-dim); }
+.nav-tab.active { color: var(--gold); background: rgba(201,168,76,0.07); }
+
+/* ─── SEARCH BAR ─── */
+.nav-search {
+  flex: 1; max-width: 280px;
+  display: flex; align-items: center;
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  gap: 8px;
+}
+.nav-search input {
+  background: none; border: none; outline: none;
+  font-family: 'DM Sans', sans-serif; font-size: 12px;
+  color: var(--text); width: 100%; padding: 7px 0;
+}
+.nav-search input::placeholder { color: var(--muted); }
+.nav-search-icon { color: var(--muted); font-size: 12px; }
+
+/* ─── VIEWS ─── */
+.view { display: none; animation: fadeSlideIn 0.35s var(--ease) both; }
+.view.active { display: block; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── SEARCH RESULTS ─── */
+.search-results-panel {
+  display: none;
+  position: fixed; top: 56px; left: 0; right: 0; z-index: 90;
+  background: rgba(12,10,7,0.97);
+  border-bottom: 0.5px solid var(--border);
+  backdrop-filter: blur(20px);
+  max-height: 400px; overflow-y: auto;
+  padding: 12px 28px 20px;
+}
+.search-results-panel.visible { display: block; }
+.search-results-title {
+  font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+.search-result-item {
+  padding: 10px 14px; border-radius: 8px; cursor: pointer;
+  border: 0.5px solid transparent;
+  margin-bottom: 4px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.search-result-item:hover { background: var(--card-bg); border-color: var(--border); }
+.search-result-book { font-size: 10px; color: var(--gold); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 3px; }
+.search-result-title { font-size: 13px; color: var(--text); font-weight: 500; }
+.search-result-snippet { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: 'EB Garamond', serif; }
+.search-highlight { color: var(--gold); background: rgba(201,168,76,0.1); border-radius: 2px; padding: 0 2px; }
+
+/* ─── LIBRARY ─── */
+.library-hero {
+  padding: 56px 28px 40px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.library-hero::after {
+  content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 60%; height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold-dim), transparent);
+}
+.library-hero h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(28px, 5vw, 44px); font-weight: 900; color: var(--gold);
+  letter-spacing: 0.02em; line-height: 1.1; margin-bottom: 12px;
+}
+.hero-subtitle {
+  font-size: 14px; color: var(--muted);
+  font-style: italic; font-family: 'EB Garamond', serif; letter-spacing: 0.02em;
+}
+
+/* ─── CATEGORIES ─── */
+.category-bar {
+  display: flex; gap: 8px; padding: 20px 28px 0; flex-wrap: wrap;
+}
+.cat-pill {
+  padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  border: 0.5px solid var(--border); color: var(--muted); background: none;
+  font-family: 'DM Sans', sans-serif;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.cat-pill:hover { color: var(--text-dim); border-color: var(--muted); }
+.cat-pill.active { color: var(--gold); border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.07); }
+
+.section-label {
+  padding: 28px 28px 14px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--muted); font-weight: 500; border-bottom: 0.5px solid var(--border);
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px; padding: 20px 28px 40px;
+}
+
+.book-card {
+  background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 10px;
+  padding: 22px 16px 18px; cursor: pointer;
+  transition: transform 0.3s var(--ease), border-color 0.3s, box-shadow 0.3s, background 0.25s;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.book-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.3s;
+}
+.book-card:hover { transform: translateY(-4px); border-color: var(--border-bright); background: var(--card-hover); box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(201,168,76,0.1); }
+.book-card:hover::before { opacity: 1; }
+.book-card.locked { opacity: 0.4; cursor: default; }
+.book-card.locked:hover { transform: none; border-color: var(--border); background: var(--card-bg); box-shadow: none; }
+.book-card.locked:hover::before { opacity: 0; }
+.book-card.hidden { display: none; }
+
+.book-spine {
+  width: 58px; height: 78px; border-radius: 3px 6px 6px 3px;
+  display: flex; align-items: center; justify-content: center; font-size: 24px;
+  background: linear-gradient(170deg, #2e2418 0%, #1a1508 100%);
+  border: 1px solid var(--gold-dim); border-left: 5px solid var(--gold-dim);
+  box-shadow: inset -2px 0 8px rgba(0,0,0,0.4), 2px 2px 8px rgba(0,0,0,0.5);
+  position: relative; transition: transform 0.3s var(--ease);
+}
+.book-card:not(.locked):hover .book-spine { transform: perspective(200px) rotateY(-8deg); }
+
+.book-title { font-family: 'Playfair Display', serif; font-size: 12.5px; color: var(--text); line-height: 1.35; font-weight: 700; }
+.book-author { font-size: 11px; color: var(--muted); }
+.book-badge { font-size: 9.5px; padding: 3px 9px; border-radius: 20px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+.badge-available { background: rgba(201,168,76,0.1); color: var(--gold); border: 0.5px solid rgba(201,168,76,0.3); }
+.badge-coming { background: rgba(100,90,70,0.12); color: var(--muted); border: 0.5px solid rgba(100,90,70,0.18); }
+
+/* ─── NOTES TAB ─── */
+.notes-wrap { max-width: 720px; margin: 0 auto; padding: 32px 28px; }
+.notes-header { margin-bottom: 28px; }
+.notes-header h2 { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--gold); margin-bottom: 6px; }
+.notes-header p { font-size: 13px; color: var(--muted); }
+.notes-list { display: flex; flex-direction: column; gap: 12px; }
+.note-card {
+  background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 10px;
+  padding: 16px 18px; position: relative;
+}
+.note-card.is-highlight { border-left: 3px solid var(--gold); }
+.note-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.note-book-tag { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); background: rgba(201,168,76,0.08); padding: 3px 8px; border-radius: 20px; }
+.note-chapter { font-size: 11px; color: var(--muted); }
+.note-text { font-family: 'EB Garamond', serif; font-size: 16px; color: var(--text-dim); line-height: 1.7; }
+.note-type-hl { font-size: 10px; color: var(--gold); letter-spacing: 0.06em; margin-bottom: 4px; }
+.note-type-note { font-size: 10px; color: var(--teal); letter-spacing: 0.06em; margin-bottom: 4px; }
+.note-delete {
+  position: absolute; top: 12px; right: 14px;
+  background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.note-card:hover .note-delete { opacity: 1; }
+.notes-empty { text-align: center; padding: 60px 20px; color: var(--muted); font-family: 'EB Garamond', serif; font-size: 17px; font-style: italic; }
+
+/* ─── LAW LIST VIEW ─── */
+.laws-header {
+  padding: 24px 28px 20px; border-bottom: 0.5px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+}
+.back-btn {
+  background: none; border: 0.5px solid var(--border); color: var(--muted);
+  border-radius: 6px; padding: 7px 13px; cursor: pointer; font-size: 12px;
+  font-family: 'DM Sans', sans-serif; transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.back-btn:hover { color: var(--text); border-color: var(--muted); }
+.laws-title h2 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--gold); }
+.laws-title p { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.laws-progress {
+  margin: 16px 28px; padding: 12px 18px;
+  background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 8px;
+  display: flex; align-items: center; gap: 14px;
+}
+.progress-track { flex: 1; height: 3px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(to right, var(--gold-dim), var(--gold)); border-radius: 2px; transition: width 0.5s var(--ease); }
+.progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.laws-list { padding: 4px 28px 28px; display: flex; flex-direction: column; gap: 6px; }
+.law-row {
+  background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 8px;
+  padding: 13px 16px; cursor: pointer; display: flex; align-items: center; gap: 14px;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  animation: rowIn 0.3s var(--ease) both;
+}
+.law-row:hover { border-color: rgba(201,168,76,0.35); background: var(--card-hover); transform: translateX(2px); }
+.law-row.read { border-left: 2px solid var(--gold); }
+.law-row.read .law-num { color: var(--gold); }
+@keyframes rowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.law-num { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--gold-dim); font-weight: 700; min-width: 32px; text-align: center; transition: color 0.2s; }
+.law-info { flex: 1; min-width: 0; }
+.law-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
+.law-tag { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.law-check { font-size: 13px; color: var(--gold); opacity: 0; transition: opacity 0.3s; }
+.law-row.read .law-check { opacity: 1; }
+
+/* ─── LAW DETAIL VIEW ─── */
+.detail-wrap { max-width: 680px; margin: 0 auto; animation: fadeSlideIn 0.3s var(--ease) both; }
+.detail-header { padding: 32px 28px 24px; border-bottom: 0.5px solid var(--border); }
+.detail-overline { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; font-weight: 500; }
+.detail-header h2 { font-family: 'Playfair Display', serif; font-size: clamp(22px, 4vw, 30px); font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 10px; }
+.detail-tagline { font-size: 14px; color: var(--muted); font-style: italic; font-family: 'EB Garamond', serif; font-size: 16px; line-height: 1.5; }
+.detail-body { padding: 28px 28px; }
+.section-block { margin-bottom: 32px; }
+.section-block h3 { font-family: 'Playfair Display', serif; font-size: 12px; color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 0.5px solid var(--border); }
+.section-block p { font-family: 'EB Garamond', serif; font-size: 17px; line-height: 1.85; color: var(--text-dim); }
+.section-block ul { padding-left: 0; list-style: none; }
+.section-block ul li { font-family: 'EB Garamond', serif; font-size: 16px; line-height: 1.7; color: var(--text-dim); margin-bottom: 8px; padding-left: 18px; position: relative; }
+.section-block ul li::before { content: '—'; position: absolute; left: 0; color: var(--gold-dim); }
+.pull-quote { border-left: 2px solid var(--gold); padding: 16px 22px; background: rgba(201,168,76,0.04); border-radius: 0 8px 8px 0; margin: 28px 0; }
+.pull-quote p { font-family: 'Playfair Display', serif; font-size: 18px; font-style: italic; color: var(--gold-glow); line-height: 1.65; }
+
+/* ─── HIGHLIGHT BUTTON ─── */
+.detail-actions {
+  display: flex; gap: 8px; margin: 0 28px 20px; flex-wrap: wrap;
+}
+.mark-btn {
+  flex: 1; padding: 11px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; letter-spacing: 0.03em;
+  background: rgba(201,168,76,0.08); border: 0.5px solid rgba(201,168,76,0.3); color: var(--gold);
+  transition: background 0.2s, transform 0.15s;
+}
+.mark-btn:hover { background: rgba(201,168,76,0.16); transform: scale(1.005); }
+.mark-btn.done { background: rgba(201,168,76,0.03); color: var(--muted); border-color: var(--border); }
+.note-btn {
+  padding: 11px 16px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+  background: rgba(76,154,138,0.08); border: 0.5px solid rgba(76,154,138,0.3); color: var(--teal);
+  transition: background 0.2s;
+}
+.note-btn:hover { background: rgba(76,154,138,0.16); }
+.hl-btn {
+  padding: 11px 16px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+  background: rgba(201,168,76,0.06); border: 0.5px solid rgba(201,168,76,0.25); color: var(--gold-dim);
+  transition: background 0.2s;
+}
+.hl-btn:hover { background: rgba(201,168,76,0.14); }
+
+/* ─── NOTE MODAL ─── */
+.note-modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 400;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center;
+}
+.note-modal-overlay.visible { display: flex; }
+.note-modal {
+  background: #161410; border: 0.5px solid var(--border-bright);
+  border-radius: 14px; padding: 28px; width: min(480px, 90vw);
+  animation: fadeSlideIn 0.3s var(--ease) both;
+}
+.note-modal h3 { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--gold); margin-bottom: 14px; }
+.note-modal textarea {
+  width: 100%; min-height: 100px;
+  background: #0a0806; border: 0.5px solid var(--border);
+  border-radius: 8px; padding: 12px 14px; font-size: 14px;
+  color: var(--text); font-family: 'EB Garamond', serif; line-height: 1.6;
+  outline: none; resize: vertical; margin-bottom: 14px;
+  transition: border-color 0.2s;
+}
+.note-modal textarea:focus { border-color: var(--border-bright); }
+.note-modal-actions { display: flex; gap: 10px; }
+.note-modal-save {
+  flex: 1; padding: 10px; border-radius: 7px; font-size: 13px;
+  font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer;
+  background: rgba(76,154,138,0.12); border: 0.5px solid rgba(76,154,138,0.4); color: var(--teal);
+}
+.note-modal-cancel {
+  padding: 10px 18px; border-radius: 7px; font-size: 13px;
+  font-family: 'DM Sans', sans-serif; cursor: pointer;
+  background: transparent; border: 0.5px solid var(--border); color: var(--muted);
+}
+
+.detail-nav { display: flex; justify-content: space-between; gap: 10px; padding: 16px 28px 32px; border-top: 0.5px solid var(--border); margin-top: 8px; }
+.detail-nav-btn { background: var(--card-bg); border: 0.5px solid var(--border); color: var(--muted); border-radius: 6px; padding: 9px 18px; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; transition: color 0.2s, border-color 0.2s; flex: 1; text-align: center; }
+.detail-nav-btn:hover:not(:disabled) { color: var(--gold); border-color: var(--border-bright); }
+.detail-nav-btn:disabled { opacity: 0.25; cursor: default; }
+
+/* ─── BOOK READER VIEW ─── */
+.reader-wrap { display: flex; flex-direction: column; height: calc(100vh - 56px); background: var(--ink); }
+.reader-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 0.5px solid var(--border); background: rgba(12,10,7,0.9); backdrop-filter: blur(8px); gap: 16px; flex-shrink: 0; }
+.reader-book-title { font-family: 'Playfair Display', serif; font-size: 14px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reader-location { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.reader-nav-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.reader-btn { background: var(--card-bg); border: 0.5px solid var(--border); color: var(--muted); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; transition: color 0.2s, border-color 0.2s, background 0.2s; }
+.reader-btn:hover:not(:disabled) { color: var(--gold); border-color: var(--border-bright); background: var(--card-hover); }
+.reader-btn:disabled { opacity: 0.3; cursor: default; }
+.reader-btn.back { color: var(--muted); }
+.reader-progress-bar { height: 2px; background: rgba(255,255,255,0.04); flex-shrink: 0; }
+.reader-progress-fill { height: 100%; background: linear-gradient(to right, var(--gold-dim), var(--gold)); transition: width 0.4s var(--ease); }
+.book-stage { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 24px; perspective: 2000px; }
+.open-book { display: flex; width: min(860px, 100%); max-height: 600px; height: 100%; border-radius: 4px; box-shadow: 0 40px 80px rgba(0,0,0,0.8), 0 0 0 0.5px rgba(201,168,76,0.1); position: relative; overflow: hidden; }
+.open-book::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 40px; background: linear-gradient(to right, transparent, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.5) 60%, transparent); pointer-events: none; z-index: 10; }
+.book-page { flex: 1; min-width: 0; background: var(--page-bg); padding: 40px 44px; overflow-y: auto; position: relative; }
+.book-page::-webkit-scrollbar { width: 3px; }
+.book-page::-webkit-scrollbar-thumb { background: #c8b88a; border-radius: 2px; }
+.book-page::before { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); }
+.book-page.left { border-right: 1px solid #d6c99a; box-shadow: inset -8px 0 16px rgba(0,0,0,0.08); }
+.book-page.right { border-left: 1px solid #d6c99a; box-shadow: inset 8px 0 16px rgba(0,0,0,0.08); }
+.page-footer { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; font-family: 'EB Garamond', serif; font-size: 11px; color: #a09070; letter-spacing: 0.05em; }
+.page-header-title { font-family: 'Playfair Display', serif; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: #b8a880; text-align: center; margin-bottom: 28px; padding-bottom: 10px; border-bottom: 0.5px solid #d0c49a; }
+.page-body { padding-bottom: 32px; }
+.page-body h2 { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 900; color: var(--page-text); margin-bottom: 20px; line-height: 1.2; }
+.page-body h3 { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; color: #5a4530; text-transform: uppercase; letter-spacing: 0.08em; margin: 24px 0 12px; text-align: center; }
+.page-body p { font-family: 'EB Garamond', serif; font-size: 15.5px; line-height: 1.9; color: var(--page-text); margin-bottom: 14px; text-align: justify; hyphens: auto; }
+.page-body p:first-of-type::first-letter { font-family: 'Playfair Display', serif; font-size: 52px; float: left; line-height: 0.8; margin-right: 6px; margin-top: 6px; color: #5a3a10; font-weight: 900; }
+.page-body blockquote { border-left: 2px solid #b89a5a; padding: 10px 16px; margin: 16px 0; background: rgba(139,110,50,0.06); }
+.page-body blockquote p { font-style: italic; color: #5a4a30; margin: 0; text-align: left; }
+.page-body blockquote p::first-letter { font-size: 16px; float: none; margin: 0; }
+.page-body .section-head { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; color: #5a4530; text-transform: uppercase; letter-spacing: 0.08em; margin: 20px 0 10px; text-align: center; }
+@media (max-width: 600px) { .book-page.right { display: none; } .open-book::after { display: none; } .book-page.left { border-right: none; box-shadow: none; border-radius: 4px; } }
+
+/* ─── PLACEHOLDER STATE ─── */
+.placeholder-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; padding: 40px; text-align: center; }
+.placeholder-state .big-icon { font-size: 48px; filter: grayscale(0.3); }
+.placeholder-state h3 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--text); }
+.placeholder-state p { font-size: 13px; color: var(--muted); line-height: 1.7; max-width: 320px; }
+
+/* ─── CONTINUE BANNER ─── */
+.continue-banner { display: none; margin: 16px 28px 0; padding: 14px 18px; background: var(--card-bg); border: 0.5px solid var(--border-bright); border-radius: 10px; align-items: center; gap: 14px; animation: fadeSlideIn 0.3s var(--ease) both; }
+.continue-banner.visible { display: flex; }
+.continue-icon { font-size: 22px; flex-shrink: 0; }
+.continue-info { flex: 1; min-width: 0; }
+.continue-info strong { display: block; font-size: 13px; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+.continue-info span { font-size: 11px; color: var(--muted); }
+.continue-btn { background: rgba(201,168,76,0.1); border: 0.5px solid rgba(201,168,76,0.35); color: var(--gold); border-radius: 7px; padding: 8px 16px; font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; white-space: nowrap; transition: background 0.2s; }
+.continue-btn:hover { background: rgba(201,168,76,0.18); }
+
+/* ─── FIREBASE STATUS ─── */
+.db-status { position: fixed; bottom: 16px; right: 16px; z-index: 200; font-size: 10px; padding: 5px 10px; border-radius: 20px; font-family: 'DM Sans', sans-serif; letter-spacing: 0.04em; pointer-events: none; opacity: 0; transition: opacity 0.4s; }
+.db-status.show { opacity: 1; }
+.db-status.saving { background: rgba(201,168,76,0.1); color: var(--gold); border: 0.5px solid rgba(201,168,76,0.3); }
+.db-status.saved  { background: rgba(80,160,80,0.1);  color: #7cb87c;    border: 0.5px solid rgba(80,160,80,0.3); }
+.db-status.error  { background: rgba(180,60,60,0.1);  color: #c08080;    border: 0.5px solid rgba(180,60,60,0.3); }
+
+/* ─── AUTH ─── */
+.auth-screen { display: none; position: fixed; inset: 0; z-index: 500; background: var(--ink); align-items: center; justify-content: center; flex-direction: column; }
+.auth-screen.visible { display: flex; }
+.auth-box { width: min(400px, 90vw); animation: fadeSlideIn 0.4s var(--ease) both; }
+.auth-logo { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; color: var(--gold); text-align: center; margin-bottom: 6px; letter-spacing: 0.06em; }
+.auth-logo span { color: var(--text-dim); font-weight: 400; }
+.auth-tagline { text-align: center; font-family: 'EB Garamond', serif; font-size: 14px; font-style: italic; color: var(--muted); margin-bottom: 36px; }
+.auth-card { background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 14px; padding: 32px; }
+.auth-tabs { display: flex; margin-bottom: 28px; border-bottom: 0.5px solid var(--border); }
+.auth-tab { flex: 1; padding: 10px; background: none; border: none; font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s; }
+.auth-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.auth-label { display: block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.auth-input { width: 100%; background: #0a0806; border: 0.5px solid var(--border); border-radius: 8px; padding: 11px 14px; font-size: 14px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; margin-bottom: 16px; transition: border-color 0.2s; }
+.auth-input:focus { border-color: var(--border-bright); }
+.auth-submit { width: 100%; padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--gold-dim), var(--gold)); color: var(--ink); font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 4px; transition: opacity 0.2s, transform 0.15s; letter-spacing: 0.02em; }
+.auth-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+.auth-submit:disabled { opacity: 0.5; cursor: default; transform: none; }
+.auth-error { font-size: 12px; color: #c08080; margin-top: -8px; margin-bottom: 14px; min-height: 16px; }
+
+/* ─── NAV USER ─── */
+.nav-user { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.user-badge { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; background: rgba(201,168,76,0.06); border: 0.5px solid var(--border); }
+.user-avatar { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--gold-dim), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--ink); }
+.user-email { font-size: 11px; color: var(--text-dim); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sign-out-btn { background: none; border: none; font-size: 11px; color: var(--muted); cursor: pointer; padding: 4px 8px; }
+.sign-out-btn:hover { color: var(--text-dim); }
+.sign-in-btn { background: none; border: 0.5px solid var(--border); color: var(--muted); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; transition: color 0.2s, border-color 0.2s; }
+.sign-in-btn:hover { color: var(--gold); border-color: var(--border-bright); }
+
+/* ─── TOC ─── */
+.toc-entry { display: flex; align-items: baseline; gap: 8px; padding: 9px 0; border-bottom: 0.5px solid rgba(201,168,76,0.06); cursor: pointer; transition: color 0.2s; }
+.toc-entry:hover .toc-name { color: var(--gold); }
+.toc-num { font-family: 'Playfair Display', serif; font-size: 13px; color: var(--gold-dim); min-width: 28px; }
+.toc-name { font-family: 'EB Garamond', serif; font-size: 15px; color: var(--text-dim); flex: 1; }
+.toc-dot { flex: 1; border-bottom: 1px dotted rgba(201,168,76,0.2); min-width: 20px; }
+.toc-page { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- AUTH SCREEN -->
+  <div class="auth-screen" id="authScreen">
+    <div class="auth-box">
+      <div class="auth-logo">POWER<span>SHELF</span></div>
+      <div class="auth-tagline">A library of mastery, built for those who study power.</div>
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+          <button class="auth-tab" onclick="switchAuthTab('signup')">Create Account</button>
+        </div>
+        <label class="auth-label">Email</label>
+        <input class="auth-input" id="authEmail" type="email" placeholder="your@email.com" />
+        <label class="auth-label">Password</label>
+        <input class="auth-input" id="authPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()" />
+        <div class="auth-error" id="authError"></div>
+        <button class="auth-submit" id="authBtn" onclick="authSubmit()">Sign In</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-logo">POWER<span>SHELF</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showView('library')">Library</button>
+      <button class="nav-tab" onclick="showView('notes')">Notes</button>
+    </div>
+    <div class="nav-search">
+      <span class="nav-search-icon">⌕</span>
+      <input id="searchInput" placeholder="Search across all books…" oninput="handleSearch(this.value)" onfocus="handleSearch(this.value)" />
+    </div>
+    <div class="nav-user" id="navUser">
+      <button class="sign-in-btn" onclick="showAuth()">Sign In</button>
+    </div>
+  </nav>
+
+  <!-- SEARCH RESULTS PANEL -->
+  <div class="search-results-panel" id="searchPanel">
+    <div class="search-results-title" id="searchResultsTitle">Results</div>
+    <div id="searchResultsList"></div>
+  </div>
+
+  <!-- LIBRARY VIEW -->
+  <div class="view active" id="view-library">
+    <div class="library-hero">
+      <h1>The Shelf of Power</h1>
+      <p class="hero-subtitle">Timeless wisdom, curated for the modern strategist</p>
+    </div>
+    <div id="continueBanner" class="continue-banner">
+      <div class="continue-icon">📖</div>
+      <div class="continue-info">
+        <strong id="continueTitle"></strong>
+        <span id="continueSubtitle"></span>
+      </div>
+      <button class="continue-btn" id="continueBtn" onclick="continueReading()">Continue →</button>
+    </div>
+    <div class="category-bar">
+      <button class="cat-pill active" onclick="filterCategory('all', this)">All</button>
+      <button class="cat-pill" onclick="filterCategory('strategy', this)">Strategy</button>
+      <button class="cat-pill" onclick="filterCategory('power', this)">Power</button>
+      <button class="cat-pill" onclick="filterCategory('philosophy', this)">Philosophy</button>
+      <button class="cat-pill" onclick="filterCategory('leadership', this)">Leadership</button>
+    </div>
+    <div class="section-label">Books</div>
+    <div class="book-grid">
+      <div class="book-card" data-cats="strategy power" onclick="openBookView('laws48')">
+        <div class="book-spine">⚡</div>
+        <div class="book-title">The 48 Laws of Power</div>
+        <div class="book-author">Robert Greene</div>
+        <div class="book-badge badge-available">Available</div>
+      </div>
+      <div class="book-card" data-cats="strategy philosophy leadership" onclick="openBookView('artofwar')">
+        <div class="book-spine">⚔️</div>
+        <div class="book-title">The Art of War</div>
+        <div class="book-author">Sun Tzu</div>
+        <div class="book-badge badge-available">Available</div>
+      </div>
+      <div class="book-card locked" data-cats="power leadership">
+        <div class="book-spine">🦁</div>
+        <div class="book-title">The 33 Strategies of War</div>
+        <div class="book-author">Robert Greene</div>
+        <div class="book-badge badge-coming">Coming Soon</div>
+      </div>
+      <div class="book-card locked" data-cats="philosophy leadership">
+        <div class="book-spine">🧠</div>
+        <div class="book-title">Mastery</div>
+        <div class="book-author">Robert Greene</div>
+        <div class="book-badge badge-coming">Coming Soon</div>
+      </div>
+      <div class="book-card locked" data-cats="strategy power">
+        <div class="book-spine">🃏</div>
+        <div class="book-title">The Prince</div>
+        <div class="book-author">Machiavelli</div>
+        <div class="book-badge badge-coming">Coming Soon</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTES VIEW -->
+  <div class="view" id="view-notes">
+    <div class="notes-wrap">
+      <div class="notes-header">
+        <h2>Highlights & Notes</h2>
+        <p>Your personal annotations across all books</p>
+      </div>
+      <div class="notes-list" id="notesList">
+        <div class="notes-empty">No highlights or notes yet.<br>Start reading to annotate.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAWS LIST VIEW -->
+  <div class="view" id="view-laws">
+    <div class="laws-header">
+      <button class="back-btn" onclick="showView('library')">← Library</button>
+      <div class="laws-title">
+        <h2 id="lawsBookTitle">The 48 Laws of Power</h2>
+        <p id="lawsBookSubtitle">Robert Greene</p>
+      </div>
+    </div>
+    <div class="laws-progress">
+      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="progress-label" id="progressLabel">0 / 0 read</div>
+    </div>
+    <div class="laws-list" id="lawsList"></div>
+  </div>
+
+  <!-- LAW DETAIL VIEW -->
+  <div class="view" id="view-detail">
+    <div class="detail-wrap">
+      <div class="detail-header">
+        <div class="detail-overline" id="detailOverline">Law 1 — The 48 Laws of Power</div>
+        <h2 id="detailTitle"></h2>
+        <div class="detail-tagline" id="detailTagline"></div>
+      </div>
+      <div class="detail-body" id="detailBody"></div>
+      <div class="detail-actions">
+        <button class="mark-btn" id="markBtn" onclick="toggleRead()">Mark as Read</button>
+        <button class="hl-btn" onclick="openHighlight()">✦ Highlight</button>
+        <button class="note-btn" onclick="openNote()">✎ Note</button>
+      </div>
+      <div class="detail-nav">
+        <button class="detail-nav-btn" id="prevLaw" onclick="navLaw(-1)">← Previous</button>
+        <button class="detail-nav-btn" onclick="showView('laws')">All Chapters</button>
+        <button class="detail-nav-btn" id="nextLaw" onclick="navLaw(1)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- READER VIEW -->
+  <div class="view" id="view-reader">
+    <div class="reader-wrap">
+      <div class="reader-toolbar">
+        <button class="reader-btn back" onclick="showView('library')">← Library</button>
+        <div style="flex:1;min-width:0;">
+          <div class="reader-book-title" id="readerTitle"></div>
+          <div class="reader-location" id="readerLocation"></div>
+        </div>
+        <div class="reader-nav-btns">
+          <button class="reader-btn" onclick="toggleToc()">Contents</button>
+          <button class="reader-btn" id="readerPrev" onclick="turnPage(-1)">‹ Prev</button>
+          <button class="reader-btn" id="readerNext" onclick="turnPage(1)">Next ›</button>
+        </div>
+      </div>
+      <div class="reader-progress-bar"><div class="reader-progress-fill" id="readerProgress" style="width:0%"></div></div>
+      <div class="book-stage" id="bookStage">
+        <div class="open-book" id="openBook">
+          <div class="book-page left" id="pageLeft"></div>
+          <div class="book-page right" id="pageRight"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="db-status" id="dbStatus"></div>
+
+  <!-- NOTE MODAL -->
+  <div class="note-modal-overlay" id="noteModal">
+    <div class="note-modal">
+      <h3 id="noteModalTitle">Add Note</h3>
+      <textarea id="noteModalText" placeholder="Write your thoughts…"></textarea>
+      <div class="note-modal-actions">
+        <button class="note-modal-save" onclick="saveNote()">Save Note</button>
+        <button class="note-modal-cancel" onclick="closeNoteModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script>
+// ════════════════════════════════════
+//  FIREBASE CONFIG — paste yours here
+// ════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+let db = null, auth = null, currentUser = null;
+let authMode = 'login';
+
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db   = firebase.database();
+  auth = firebase.auth();
+  auth.onAuthStateChanged(user => {
+    currentUser = user;
+    const navUser = document.getElementById('navUser');
+    const authScreen = document.getElementById('authScreen');
+    if (user) {
+      authScreen.classList.remove('visible');
+      const initials = (user.email || 'U')[0].toUpperCase();
+      navUser.innerHTML = `
+        <div class="user-badge">
+          <div class="user-avatar">${initials}</div>
+          <div class="user-email">${user.email}</div>
+        </div>
+        <button class="sign-out-btn" onclick="signOut()">Sign out</button>
+      `;
+      loadProgress();
+      loadAnnotations();
+    } else {
+      navUser.innerHTML = `<button class="sign-in-btn" onclick="showAuth()">Sign In</button>`;
+    }
+  });
+} catch(e) { console.warn('Firebase not configured:', e.message); }
+
+// ════════════════════════════════════
+//  STATE
+// ════════════════════════════════════
+let currentView  = 'library';
+let currentBookId = null;
+let currentLawIndex = 0;
+let readLaws = new Set();
+let annotations = []; // {id, bookId, lawIndex, type:'highlight'|'note', text, lawTitle, ts}
+let bookPages = [];
+let currentSpread = 0;
+let tocVisible = false;
+let currentBookData = null; // holds the chapters array for current book
+let noteModalMode = null; // 'note' or 'highlight'
+
+// ════════════════════════════════════
+//  VIEWS
+// ════════════════════════════════════
+function showView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  if (v === 'library') document.querySelectorAll('.nav-tab')[0].classList.add('active');
+  if (v === 'notes') { document.querySelectorAll('.nav-tab')[1].classList.add('active'); renderNotes(); }
+  currentView = v;
+  closeSearch();
+}
+
+// ════════════════════════════════════
+//  CATEGORIES
+// ════════════════════════════════════
+function filterCategory(cat, btn) {
+  document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.book-card').forEach(card => {
+    if (cat === 'all') { card.classList.remove('hidden'); return; }
+    const cats = (card.dataset.cats || '').split(' ');
+    card.classList.toggle('hidden', !cats.includes(cat));
+  });
+}
+
+// ════════════════════════════════════
+//  BOOK DATA — 48 Laws
+// ════════════════════════════════════
+const LAWS = [
+  { n:1, name:"Never Outshine the Master", tag:"Make those above you feel superior", summary:"Always make those above you feel comfortably superior. In your desire to please and impress them, do not go too far in displaying your talents or you might accomplish the opposite — inspire fear and insecurity.", keys:["Suppress your natural talents when around superiors","Make your masters appear more brilliant than they are","You can seduce your superiors with charm"], quote:"Make your masters appear more brilliant than they are and you will attain the heights of power." },
+  { n:2, name:"Never Put Too Much Trust in Friends, Learn How to Use Enemies", tag:"Friends will betray you; enemies become allies", summary:"Be wary of friends — they will betray you more quickly, for they are easily aroused to envy. Hire a former enemy and he will be more loyal than a friend, because he has more to prove.", keys:["Use enemies — they have something to prove","Friends become envious when you succeed","Keep an eye on those who are too friendly"], quote:"It is better to have a former enemy working for you than a friend." },
+  { n:3, name:"Conceal Your Intentions", tag:"Keep people off-balance", summary:"Keep people off-balance and in the dark by never revealing the purpose behind your actions. If they have no clue what you are up to, they cannot prepare a defense. Guide them far enough down the wrong path, envelope them in enough smoke, and by the time they realize your intentions, it will be too late.", keys:["Use smoke screens to disguise your intentions","Seem friendly while working your schemes","Set up false trails and red herrings"], quote:"Hide your intentions not by closing yourself off, but by opening up — seeming like you share all, while directing attention elsewhere." },
+  { n:4, name:"Always Say Less Than Necessary", tag:"The more you say, the more common you appear", summary:"When you are trying to impress people with words, the more you say, the more common you appear, and the less in control. Even if you are saying something banal, it will seem original if you make it vague, open-ended, and sphinxlike.", keys:["Speak only when necessary","Silence creates power and presence","Let others do the talking"], quote:"Powerful people impress and intimidate by saying less." },
+  { n:5, name:"So Much Depends on Reputation — Guard It with Your Life", tag:"Reputation is the cornerstone of power", summary:"Reputation is the cornerstone of power. Through reputation alone you can intimidate and win; once it slips, however, you are vulnerable, and will be attacked on all sides. Make your reputation unassailable.", keys:["Know your reputation and protect it","Attack reputation before it attacks you","Make your reputation a deterrent"], quote:"Reputation is the cornerstone of power." },
+  { n:6, name:"Court Attention at All Costs", tag:"Everything is judged by its appearance", summary:"Everything is judged by its appearance; what is unseen counts for nothing. Never let yourself get lost in the crowd, then, or buried in oblivion. Stand out. Be conspicuous, at whatever cost.", keys:["Create an air of mystery","Be seen — invisibility is death","Surround yourself with the flair of a confident presence"], quote:"Everything is judged by its appearance. What is unseen counts for nothing." },
+  { n:7, name:"Get Others to Do the Work for You, but Always Take the Credit", tag:"Use the wisdom, knowledge, and legwork of other people", summary:"Use the wisdom, knowledge, and legwork of other people to further your own cause. Not only will such assistance save you valuable time and energy, it will give you a godlike aura of efficiency and speed.", keys:["Never do yourself what others can do for you","Take credit strategically","Let others pave the way"], quote:"Use the past to advance your schemes." },
+  { n:8, name:"Make Other People Come to You — Use Bait if Necessary", tag:"When you force the other person to act, you are the one in control", summary:"When you force the other person to act, you are the one in control. It is always better to make your opponent come to you, abandoning his own plans in the process. Lure him with fabulous gains — then attack.", keys:["Never go to the enemy — make him come to you","Set bait and wait","The one who reacts is controlled"], quote:"The aggressor sets the pace; the one who waits holds power." },
+  { n:9, name:"Win Through Your Actions, Never Through Argument", tag:"Demonstrate, do not explicate", summary:"Any momentary triumph you think you have gained through argument is really a Pyrrhic victory: the resentment and ill will you stir up is stronger and lasts longer than any change of opinion. It is much more powerful to get others to agree with you through your actions, without saying a word.", keys:["Actions are more persuasive than words","Proving through deeds avoids resentment","Let results speak"], quote:"Actions speak louder, and the effects are permanent." },
+  { n:10, name:"Infection: Avoid the Unhappy and Unlucky", tag:"You can die from someone else's misery", summary:"You can die from someone else's misery — emotional states are as infectious as diseases. You may feel you are helping the drowning man but you are only precipitating your own disaster. The unfortunate sometimes draw misfortune on themselves; they will draw it on you, too.", keys:["Misery is contagious — stay away from it","Surround yourself with the happy and the fortunate","Recognize the source of misfortune"], quote:"Emotional states are as infectious as diseases." },
+  { n:11, name:"Learn to Keep People Dependent on You", tag:"Dependence is power", summary:"To maintain your independence you must always be needed and wanted. The more you are relied on, the more freedom you have. Make people depend on you for their happiness and prosperity and you have nothing to fear.", keys:["Make yourself necessary","Foster reliance in others","Never teach everything — keep something back"], quote:"The more you are relied on, the more freedom you have." },
+  { n:12, name:"Use Selective Honesty and Generosity to Disarm Your Victim", tag:"One sincere move will cover a multitude of sins", summary:"One sincere and honest move will cover over dozens of dishonest ones. Open-hearted gestures of honesty and generosity bring down the guard of even the most suspicious people. Once your selective honesty opens a hole in their armor, you can deceive and manipulate them at will.", keys:["Give freely to take more","One act of honesty disarms suspicion","Use gifts as a weapon"], quote:"Selective honesty creates a powerful aura of openness." },
+  { n:13, name:"When Asking for Help, Appeal to People's Self-Interest", tag:"Never to their mercy or gratitude", summary:"If you need to turn to an ally for help, do not bother to remind him of your past assistance and good deeds. He will find a way to ignore you. Instead, uncover something in your request, or in your alliance with him, that will benefit him, and emphasize it out of all proportion.", keys:["Frame requests in terms of benefit to others","Do not rely on loyalty or mercy","Make cooperation seem irresistible"], quote:"The most effective appeal is always to self-interest, never mercy." },
+  { n:14, name:"Pose as a Friend, Work as a Spy", tag:"Know your enemy", summary:"Knowing about your rival is critical. Use spies to gather valuable information that will keep you a step ahead. Better still: play the spy yourself. In polite social encounters, learn to probe. Ask indirect questions to get people to reveal their weaknesses and intentions.", keys:["Gather intelligence through social interaction","Appear friendly while extracting information","Knowledge is power"], quote:"Know your enemy — gather intelligence through any means necessary." },
+  { n:15, name:"Crush Your Enemy Totally", tag:"Leave no embers to flame up again", summary:"All great leaders since Moses have known that a feared enemy must be crushed completely. (Sometimes they have learned this the hard way.) If you leave even a wound, your enemies will eventually recuperate; they will want revenge.", keys:["Defeat leaves seeds of vengeance","Half measures prolong the war","Total victory removes future threats"], quote:"If you leave sparks, they will ignite." },
+  { n:16, name:"Use Absence to Increase Respect and Honor", tag:"Create value through scarcity", summary:"Too much circulation makes the price go down: the more you are seen and heard from, the more common you appear. If you are already established in a group, temporary withdrawal from it will make you more talked about, even more admired. You must learn when to leave.", keys:["Absence makes the heart grow fonder","Scarcity creates value","Time your returns strategically"], quote:"Create value through scarcity." },
+  { n:17, name:"Keep Others in Suspended Terror: Cultivate an Air of Unpredictability", tag:"Humans are creatures of habit", summary:"Humans are creatures of habit with an insatiable need to see familiarity in other people's actions. Your predictability gives them a sense of control. Turn the tables: be deliberately unpredictable. Behavior that seems to have no consistency or purpose will keep them off-balance.", keys:["Unpredictability paralyzes opponents","Break patterns to regain control","Create an aura of controlled chaos"], quote:"Unpredictability is a weapon — no one can prepare for what they cannot predict." },
+  { n:18, name:"Do Not Build Fortresses to Protect Yourself — Isolation is Dangerous", tag:"Isolation cuts you off from information", summary:"The world is dangerous and enemies are everywhere — everyone has to protect themselves. A fortress seems the safest. But isolation exposes you to more dangers than it protects you from — it cuts you off from valuable information, makes you conspicuous and an easy target.", keys:["Stay in circulation","Isolation breeds paranoia and vulnerability","Information is protection"], quote:"Power requires contact with the world. Isolation leaves you exposed." },
+  { n:19, name:"Know Who You're Dealing With — Do Not Offend the Wrong Person", tag:"There are many different kinds of people", summary:"There are many different kinds of people in the world, and you can never assume that everyone will react to your strategies in the same way. Deceive or outmaneuver some people and they will spend the rest of their lives seeking revenge.", keys:["Study your targets carefully","Some people are wolves in sheep's clothing","Gauge character before acting"], quote:"Never assume all people will react the same way to your strategies." },
+  { n:20, name:"Do Not Commit to Anyone", tag:"Preserve your independence", summary:"It is the fool who always rushes to take sides. Do not commit to any side or cause but your own. By maintaining your independence, you become the master of others — playing people against one another, making them pursue you.", keys:["Independence gives power to choose","Playing sides diminishes you","Let others court you"], quote:"Do not commit to anyone — maintain your independence at all costs." },
+  { n:21, name:"Play a Sucker to Catch a Sucker — Seem Dumber Than Your Mark", tag:"No one likes feeling stupider than the next person", summary:"No one likes feeling stupider than the next person. The trick, then, is to make your victims feel smart — and not just smart, but smarter than you. Once convinced of this, they will never suspect that you may have ulterior motives.", keys:["Appear naive to catch the unwary","Let others underestimate you","Seeming dumb is the ultimate deception"], quote:"Seem dumber than your mark — they will never suspect your real intentions." },
+  { n:22, name:"Use the Surrender Tactic: Transform Weakness into Power", tag:"When you are weaker, never fight for honor's sake", summary:"When you are weaker, never fight for honor's sake; choose surrender instead. Surrender gives you time to recover, time to torment and irritate your conqueror, time to wait for his power to wane. Do not give him the satisfaction of fighting and defeating you — surrender first.", keys:["Strategic retreat is not defeat","Surrender preserves resources","Wait for your enemy's strength to decline"], quote:"Surrender to transform weakness into future power." },
+  { n:23, name:"Concentrate Your Forces", tag:"Intensity defeats extensity", summary:"Conserve your forces and energies by keeping them concentrated at their strongest point. You gain more by finding a rich mine and mining it deeper than by flitting from one shallow mine to another. Intensity defeats extensity every time.", keys:["Focus your energy on one powerful source","Spread thin and you weaken","Find your rich mine and dig deep"], quote:"Intensity defeats extensity every time." },
+  { n:24, name:"Play the Perfect Courtier", tag:"The court is a treacherous place", summary:"The perfect courtier thrives in a world where everything revolves around power and political dexterity. He has mastered the art of indirection; he flatters, yields to superiors, and asserts power over others in the most oblique and graceful manner.", keys:["Master indirection and subtlety","Never outshine in social situations","Flatter upward, assert downward"], quote:"The perfect courtier never works directly but through indirection." },
+  { n:25, name:"Re-Create Yourself", tag:"Do not accept the roles that society foists on you", summary:"Do not accept the roles that society foists on you. Re-create yourself by forging a new identity, one that commands attention and never bores the audience. Be the master of your own image rather than letting others define it for you.", keys:["Forge your own identity deliberately","Control your image at all times","Adapt and reinvent when necessary"], quote:"Be the master of your own image — forge a new identity that commands attention." },
+  { n:26, name:"Keep Your Hands Clean", tag:"You must seem a paragon of civility and efficiency", summary:"You must seem a paragon of civility and efficiency: your hands are never soiled by mistakes and nasty deeds. Maintain such a spotless appearance by using others as scapegoats and cat's-paws to disguise your involvement.", keys:["Use others as scapegoats","Distance yourself from dirty work","Appear innocent while orchestrating events"], quote:"Your hands must seem clean. Use others to do the dirty work." },
+  { n:27, name:"Play on People's Need to Believe to Create a Cultlike Following", tag:"People have an overwhelming desire to believe in something", summary:"People have an overwhelming desire to believe in something. Become the focal point of such desire by offering them a cause, a new faith to follow. Keep your words vague but full of promise; emphasize enthusiasm over rationality and clear thinking.", keys:["Offer vague but inspiring vision","Create rituals and symbols","Foster belief and loyalty"], quote:"People crave belief — become the focal point of their faith." },
+  { n:28, name:"Enter Action with Boldness", tag:"Timidity is dangerous", summary:"If you are unsure of a course of action, do not attempt it. Your doubts and hesitations will infect your execution. Timidity is dangerous: better to enter with boldness. Any mistakes you commit through audacity are easily corrected with more audacity.", keys:["Boldness generates momentum","Timidity infects all it touches","Audacity covers all mistakes"], quote:"Audacity is infectious — enter with boldness, and others will follow." },
+  { n:29, name:"Plan All the Way to the End", tag:"The ending is everything", summary:"The ending is everything. Plan all the way to it, taking into account all the possible consequences, obstacles, and twists of fortune that might reverse your hard work and give the glory to others. By planning to the end you will not be overwhelmed by circumstances.", keys:["Think through the entire sequence of events","Account for possible reversals","The end justifies the means only if you get there"], quote:"The ending is everything — plan all the way to it." },
+  { n:30, name:"Make Your Accomplishments Seem Effortless", tag:"Conceal the toil behind your triumphs", summary:"Your actions must seem natural and executed with ease. All the toil and practice that go into them, and also all the clever tricks, must be concealed. When you act, act effortlessly, as if you could do much more. Avoid the temptation of revealing how hard you work.", keys:["Conceal effort — reveal only results","Sprezzatura: studied carelessness","Make mastery look innate"], quote:"Conceal your effort, and your results will seem magical." },
+  { n:31, name:"Control the Options: Get Others to Play with the Cards You Deal", tag:"Give them options, but make sure they're yours", summary:"The best deceptions are the ones that seem to give the other person a choice: your victims feel they are in control, but are actually your puppets. Give people options that come out in your favor whichever they choose.", keys:["Create the illusion of free choice","Control the menu of options","Forced choices are still your choices"], quote:"Give them options — all of which serve your purpose." },
+  { n:32, name:"Play to People's Fantasies", tag:"The truth is often avoided", summary:"The truth is often avoided because it is ugly and unpleasant. Never appeal to truth and reality unless you are prepared for the anger that comes from disenchantment. Life is so harsh and distressing that people who can manufacture romance or conjure up fantasy are like oases in the desert.", keys:["People want fantasy over reality","Become the oasis of dreams","Promise the ideal, not the real"], quote:"Play to people's fantasies — they will love you for it." },
+  { n:33, name:"Discover Each Man's Thumbscrew", tag:"Everyone has a weakness", summary:"Everyone has a weakness, a gap in the castle wall. That weakness is usually an insecurity, an uncontrollable emotion or need; it can also be a small secret pleasure. Either way, once found, it is a thumbscrew you can turn to your advantage.", keys:["Find the hidden insecurity","Locate the emotional need","Use what you find discreetly"], quote:"Everyone has a weakness — find it, and you hold the key." },
+  { n:34, name:"Be Royal in Your Own Fashion: Act Like a King to Be Treated Like One", tag:"The way you carry yourself determines how you are treated", summary:"The way you carry yourself will often determine how you are treated. In the long run, appearing vulgar or common will make people disrespect you. For a king respects himself and inspires the same sentiment in others. By acting regally and confident of your powers, you make yourself seem destined to wear a crown.", keys:["Project confidence and dignity","Entitlement creates expectation","Act as if you have already arrived"], quote:"Act like a king and you will be treated like one." },
+  { n:35, name:"Master the Art of Timing", tag:"Never seem to be in a hurry", summary:"Never seem to be in a hurry — hurrying betrays a lack of control over yourself, and over time. Always seem patient, as if you know that everything will come to you eventually. Become a detective of the right moment; sniff out the spirit of the times, the trends that will carry you to power.", keys:["Patience is power","Detect the spirit of the times","Strike only when the moment is ripe"], quote:"The right moment contains the force of a thousand actions." },
+  { n:36, name:"Disdain Things You Cannot Have: Ignoring Them is the Best Revenge", tag:"By acknowledging a petty problem you give it existence", summary:"By acknowledging a petty problem you give it existence and credibility. The more attention you pay an enemy, the stronger you make him; and a small mistake is often made worse and more visible when you try to fix it. If there is something you want but cannot have, show contempt for it.", keys:["Ignore what you cannot have","Contempt disarms petty opponents","Attention feeds the problem"], quote:"Ignore the petty. Disdain the unattainable. Move on." },
+  { n:37, name:"Create Compelling Spectacles", tag:"Striking imagery and grand gestures create an aura", summary:"Striking imagery and grand symbolic gestures create the aura of power — everyone responds to them. Stage spectacles for those around you, then, full of arresting visuals and radiant symbols that heighten your presence. Dazzled by appearances, no one will notice what you are really doing.", keys:["Spectacle distracts and dazzles","Symbols communicate power instantly","The visual is more powerful than words"], quote:"Grand symbolic gestures create an aura of power that words cannot match." },
+  { n:38, name:"Think as You Like but Behave Like Others", tag:"Blend in on the surface", summary:"If you make a show of going against the times, flaunting your unconventional ideas and unorthodox ways, people will think that you only want attention and that you look down upon them. They will punish you for making them feel inferior. It is far safer to blend in and nurture the common touch.", keys:["Keep subversive thoughts to yourself","Outward conformity protects inner freedom","Reserve your originality for the right moment"], quote:"Blend in on the surface while remaining unique within." },
+  { n:39, name:"Stir Up Waters to Catch Fish", tag:"Anger and emotion are strategically counterproductive", summary:"Anger and emotion are strategically counterproductive. You must always stay calm and objective. But if you can make your enemies angry while you stay calm, you gain a decided advantage. Put your enemies off-balance: find the chink in their vanity through which you can rattle them.", keys:["Stay calm while others erupt","Provoke anger in the enemy","Emotional reactions cloud judgment"], quote:"Find the chink in their vanity and exploit it." },
+  { n:40, name:"Despise the Free Lunch", tag:"What is offered for free is dangerous", summary:"What is offered for free is dangerous — it usually involves either a trick or a hidden obligation. What has worth is worth paying for. By paying your own way you stay clear of gratitude, guilt, and deceit. It is also often wise to pay the full price — there is no cutting corners with excellence.", keys:["Gifts create obligation","Independence requires paying your own way","Cheap shortcuts have hidden costs"], quote:"What is given for free carries a hidden price." },
+  { n:41, name:"Avoid Stepping into a Great Man's Shoes", tag:"The shadow of the past is crushing", summary:"What happens first always appears better and more original than what comes after. If you succeed a great man or have a famous parent, you will have to accomplish double their achievements to outshine them. Do not get lost in their shadow, or stuck in a past not of your own making.", keys:["Forge your own legacy","The shadow of greatness crushes","Establish your own identity first"], quote:"Create your own identity rather than living in the shadow of another's greatness." },
+  { n:42, name:"Strike the Shepherd and the Sheep Will Scatter", tag:"Remove the leader and the group dissolves", summary:"Trouble can often be traced to a single strong individual — the stirrer, the arrogant underling, the poisoner of goodwill. If you allow such people room to operate, others will succumb to their influence. Do not wait for the troubles they cause to multiply, do not try to negotiate with them — remove them.", keys:["Identify the source of disruption","Remove key individuals to collapse groups","Cut the head off the snake"], quote:"Neutralize the source, and the rest will fall apart." },
+  { n:43, name:"Work on the Hearts and Minds of Others", tag:"Coercion creates a reaction", summary:"Coercion creates a reaction that will eventually work against you. You must seduce others into wanting to move in your direction. A person you have seduced becomes your faithful ally; a person you have coerced becomes your enemy waiting for revenge.", keys:["Win minds through seduction not force","Convert enemies into allies","The heart is more powerful than the head"], quote:"Seduction is stronger than coercion — work on the heart, and the mind will follow." },
+  { n:44, name:"Disarm and Infuriate with the Mirror Effect", tag:"Reflect what others do", summary:"The mirror reflects reality, but it is also the perfect tool for deception: When you mirror your enemies, doing exactly as they do, they cannot figure out your strategy. The mirror effect mocks and humiliates them, making them overreact. By holding up a mirror to their psyches, you seduce them with the illusion that you share their values.", keys:["Mirror your enemy's actions to confuse them","The reflected image disarms and infuriates","Use their own strategy against them"], quote:"Reflecting your enemy's moves back at them leaves them powerless." },
+  { n:45, name:"Preach the Need for Change, but Never Reform Too Much at Once", tag:"Innovation is dangerous", summary:"Everyone understands the need for change in the abstract, but on the day-to-day level people are creatures of habit. Too much innovation is traumatic, and will lead to revolt. If you are new to a position of power, or an outsider trying to make inroads into a new culture, make a show of respecting the old way of doing things.", keys:["Respect existing culture while making change","Radical change creates resistance","Introduce reforms gradually"], quote:"Change must appear as continuity — reform quietly." },
+  { n:46, name:"Never Appear Too Perfect", tag:"Appearing better than others is dangerous", summary:"Appearing better than others is always dangerous, but most dangerous of all is to appear to have no faults or weaknesses. Envy creates silent enemies. It is smart to occasionally display defects, and to admit to harmless vices, in order to deflect the envy and mask your true nature.", keys:["Show harmless flaws to disarm envy","Perfect people invite attack","Vulnerability is strategic"], quote:"Show an occasional weakness — it makes your power more tolerable to others." },
+  { n:47, name:"Do Not Go Past the Mark You Aimed For — In Victory, Learn When to Stop", tag:"The moment of victory is the moment of greatest danger", summary:"The moment of victory is often the moment of greatest peril. In the heat of victory, arrogance and overconfidence can push you past the goal you had aimed for, and by going too far, you make more enemies than you defeat. Do not allow success to go to your head.", keys:["Victory brings its own dangers","Know when to stop pushing","Overreach invites downfall"], quote:"In victory, learn when to stop. The greatest danger comes after triumph." },
+  { n:48, name:"Assume Formlessness", tag:"By taking a shape, by having a visible plan, you open yourself to attack", summary:"By taking a shape, by having a visible plan, you open yourself to attack. Instead, be like water: flowing and formless. Accept that nothing is certain and no law is fixed. The best way to protect yourself is to be as fluid and formless as water; never bet on stability or lasting order.", keys:["Adaptability is ultimate power","Formlessness prevents targeting","Like water, flow around obstacles"], quote:"Accept nothing as certain. Be formless, and you cannot be attacked." }
+];
+
+// ════════════════════════════════════
+//  ART OF WAR DATA
+// ════════════════════════════════════
+const ART_OF_WAR_CHAPTERS = [
+  {
+    n:1, name:"Laying Plans", tag:"The five constant factors of war",
+    summary:"Sun Tzu outlines five constant factors that govern the outcome of war: the Moral Law (unity between ruler and people), Heaven (conditions of time), Earth (terrain and distances), the Commander (virtues of leadership), and Method and Discipline (organization). He who knows these will be victorious; he who knows them not will fail.",
+    keys:["Victory belongs to those who plan and calculate","The five factors: Moral Law, Heaven, Earth, Commander, Method","Modify plans according to favorable circumstances","All warfare is based on deception"],
+    quote:"All warfare is based on deception.",
+    verses:[
+      "The art of war is of vital importance to the State. It is a matter of life and death, a road either to safety or to ruin.",
+      "The art of war is governed by five constant factors: the Moral Law, Heaven, Earth, the Commander, and Method and Discipline.",
+      "The general who wins a battle makes many calculations before the battle is fought. The general who loses a battle makes but few calculations beforehand."
+    ]
+  },
+  {
+    n:2, name:"Waging War", tag:"The cost and economy of war",
+    summary:"Sun Tzu emphasizes that prolonged war exhausts a state's resources and weakens its people. Victory must come quickly. A wise general forages on the enemy's resources rather than draining his own. The ultimate goal is victory, not lengthy campaigns.",
+    keys:["Prolonged war weakens even the victor","Speed is essential to preserve resources","Forage on the enemy — their supplies become yours","Victory, not duration, is the object"],
+    quote:"In war, then, let your great object be victory, not lengthy campaigns.",
+    verses:[
+      "When you engage in actual fighting, if victory is long in coming, then men's weapons will grow dull and their ardor will be damped.",
+      "There is no instance of a country having benefited from prolonged warfare.",
+      "The leader of armies is the arbiter of the people's fate."
+    ]
+  },
+  {
+    n:3, name:"Attack by Stratagem", tag:"Supreme excellence: winning without fighting",
+    summary:"The highest form of generalship is to defeat the enemy through strategy — before a single blow is struck. Breaking resistance without fighting is supreme excellence. Sun Tzu outlines the famous maxim: know yourself and know your enemy, and victory is assured in a hundred battles.",
+    keys:["Win without fighting — break resistance through strategy","Balk the enemy's plans rather than fighting their army","Know your enemy and know yourself","The general is the bulwark of the State"],
+    quote:"Supreme excellence consists in breaking the enemy's resistance without fighting.",
+    verses:[
+      "In the practical art of war, the best thing of all is to take the enemy's country whole and intact; to shatter and destroy it is not so good.",
+      "Hence to fight and conquer in all your battles is not supreme excellence; supreme excellence consists in breaking the enemy's resistance without fighting.",
+      "If you know the enemy and know yourself, you need not fear the result of a hundred battles."
+    ]
+  },
+  {
+    n:4, name:"Tactical Dispositions", tag:"Securing victory before the battle begins",
+    summary:"The skillful general first makes himself invincible and then awaits the enemy's vulnerability. Security against defeat lies in our own hands, but the opportunity to defeat the enemy is provided by the enemy. Victory is assured through preparation, not improvisation.",
+    keys:["First put yourself beyond the possibility of defeat","Security against defeat lies in your own hands","The victorious general seeks battle after the victory has been won","Making no mistakes is what establishes the certainty of victory"],
+    quote:"The victorious strategist only seeks battle after the victory has been won.",
+    verses:[
+      "The good fighters of old first put themselves beyond the possibility of defeat, and then waited for an opportunity of defeating the enemy.",
+      "He wins his battles by making no mistakes. Making no mistakes is what establishes the certainty of victory, for it means conquering an enemy that is already defeated.",
+      "The onrush of a conquering force is like the bursting of pent-up waters into a chasm a thousand fathoms deep."
+    ]
+  },
+  {
+    n:5, name:"Energy", tag:"The momentum of combined forces",
+    summary:"Sun Tzu explains the interplay between direct and indirect forces. Like five musical notes creating infinite melodies, direct and indirect methods in combination create endless possibilities. Energy is like a bending crossbow; decision, the releasing of a trigger. Combined energy used well is unstoppable.",
+    keys:["The direct and indirect methods combine to create endless strategies","Energy is the bending of a crossbow; decision is pulling the trigger","Simulated disorder requires perfect discipline","Use combined energy, not individual heroics"],
+    quote:"Energy may be likened to the bending of a crossbow; decision, to the releasing of a trigger.",
+    verses:[
+      "In all fighting, the direct method may be used for joining battle, but indirect methods will be needed in order to secure victory.",
+      "The onset of troops is like the rush of a torrent which will even roll stones along in its course.",
+      "Thus the energy developed by good fighting men is as the momentum of a round stone rolled down a mountain thousands of feet in height."
+    ]
+  },
+  {
+    n:6, name:"Weak Points and Strong", tag:"Strike where the enemy is unprepared",
+    summary:"Whoever is first in the field and awaits the coming enemy will be fresh for the fight; whoever arrives second will be exhausted. The wise combatant imposes his will on the enemy rather than allowing the enemy's will to be imposed on him. Strike weak points; avoid strong ones.",
+    keys:["Be first in the field — dictate the pace","Strike the enemy's weak points, avoid the strong","Appear where the enemy must defend","Divide the enemy's forces; concentrate your own"],
+    quote:"Military tactics are like unto water — avoid what is strong and strike at what is weak.",
+    verses:[
+      "Whoever is first in the field and awaits the coming of the enemy, will be fresh for the fight; whoever is second in the field and has to hasten to battle will arrive exhausted.",
+      "You can be sure of succeeding in your attacks if you only attack places which are undefended.",
+      "Do not repeat the tactics which have gained you one victory, but let your methods be regulated by the infinite variety of circumstances."
+    ]
+  },
+  {
+    n:7, name:"Maneuvering", tag:"The art of turning the devious into the direct",
+    summary:"Tactical maneuvering is the most difficult art — turning the devious into the direct, and misfortune into gain. Speed is essential. Know the ground, know your alliances, use deception. Be swift as the wind, compact as the forest, aggressive as fire, immovable as a mountain.",
+    keys:["Turn obstacles into advantages","Speed, deception, and knowledge of terrain","Be swift as wind, immovable as mountain","Attack morale and spirit, not just the body"],
+    quote:"Let your rapidity be that of the wind, your compactness that of the forest.",
+    verses:[
+      "The difficulty of tactical maneuvering consists in turning the devious into the direct, and misfortune into gain.",
+      "Let your plans be dark and impenetrable as night, and when you move, fall like a thunderbolt.",
+      "A whole army may be robbed of its spirit; a commander-in-chief may be robbed of his presence of mind."
+    ]
+  },
+  {
+    n:8, name:"Variation in Tactics", tag:"The advantages that accompany variation",
+    summary:"A general who understands variation in tactics knows how to handle troops. There are roads not to follow, armies not to attack, towns not to besiege. The wise blend advantages and disadvantages together. Five dangerous faults can ruin a general: recklessness, cowardice, a hasty temper, a delicate sense of honor, and over-solicitude for his men.",
+    keys:["Know what not to do as well as what to do","Blend advantage and disadvantage in all plans","Five fatal faults destroy generals: recklessness, cowardice, temper, pride, sentimentality","Rely on your own readiness, not the enemy's failure to come"],
+    quote:"The art of war teaches us to rely not on the likelihood of the enemy's not coming, but on our own readiness to receive him.",
+    verses:[
+      "The general who thoroughly understands the advantages that accompany variation of tactics knows how to handle his troops.",
+      "There are five dangerous faults which may affect a general: recklessness, cowardice, a hasty temper, a delicacy of honor, and over-solicitude for his men.",
+      "When an army is overthrown and its leader slain, the cause will surely be found among these five dangerous faults."
+    ]
+  },
+  {
+    n:9, name:"The Army on the March", tag:"Reading the signs of the enemy",
+    summary:"Sun Tzu details how to position an army across different terrains — mountains, rivers, marshes, plains. He reveals how to read signs of the enemy: dust rising, birds taking flight, the behavior of soldiers. Leadership requires balancing humanity with iron discipline.",
+    keys:["Choose high ground and sunny positions","Read signs of the enemy's movements and morale","Treat soldiers with humanity but control them with iron discipline","Observe carefully — everything is a signal"],
+    quote:"Soldiers must be treated in the first instance with humanity, but kept under control by means of iron discipline.",
+    verses:[
+      "When the enemy is close at hand and remains quiet, he is relying on the natural strength of his position.",
+      "He who exercises no forethought but makes light of his opponents is sure to be captured by them.",
+      "If a general shows confidence in his men but always insists on his orders being obeyed, the gain will be mutual."
+    ]
+  },
+  {
+    n:10, name:"Terrain", tag:"The six kinds of ground",
+    summary:"Sun Tzu distinguishes six kinds of terrain and six calamities that arise from generals' faults: flight, insubordination, collapse, ruin, disorganization, and rout. A great general knows when to fight against the sovereign's orders and when to obey. Regard your soldiers as children, and they will follow you into the deepest valleys.",
+    keys:["Know your terrain — it determines your tactics","Six calamities all spring from the general's faults","Regard your soldiers as your children","Know the enemy and yourself for complete victory"],
+    quote:"If you know the enemy and know yourself, your victory will not stand in doubt; if you know Heaven and know Earth, you may make your victory complete.",
+    verses:[
+      "The natural formation of the country is the soldier's best ally.",
+      "Regard your soldiers as your children, and they will follow you into the deepest valleys; look upon them as your own beloved sons, and they will stand by you even unto death.",
+      "If fighting is sure to result in victory, then you must fight, even though the ruler forbid it."
+    ]
+  },
+  {
+    n:11, name:"The Nine Situations", tag:"Nine varieties of ground and how to master them",
+    summary:"Sun Tzu identifies nine varieties of ground — from dispersive ground (home territory) to desperate ground (where survival requires fighting). Each demands a different response. The master general adapts completely to circumstances, burns his boats behind him, and keeps his men in a situation where they fight with everything they have.",
+    keys:["Nine varieties of ground require nine different strategies","On desperate ground, fight","Burn your boats — total commitment creates total effort","Rapidity is the essence of war"],
+    quote:"Rapidity is the essence of war: take advantage of the enemy's unreadiness, make your way by unexpected routes, and attack unguarded spots.",
+    verses:[
+      "Throw your soldiers into positions whence there is no escape, and they will prefer death to flight.",
+      "At the critical moment, the leader of an army acts like one who has climbed up a height and then kicks away the ladder behind him.",
+      "At first, then, exhibit the coyness of a maiden, until the enemy gives you an opening; afterwards emulate the rapidity of a running hare."
+    ]
+  },
+  {
+    n:12, name:"The Attack by Fire", tag:"Five ways of attacking with fire",
+    summary:"Sun Tzu describes five methods of fire attack and the conditions for using them. The lesson extends beyond warfare: never act from anger or emotion. Move only when there is advantage. A kingdom destroyed can never be restored; the dead cannot be brought back to life. Therefore, the enlightened ruler is heedful and the good general full of caution.",
+    keys:["Use fire strategically — attack at favorable moments","Never act from anger or emotion","Move only when there is a genuine advantage","A kingdom once destroyed cannot be restored"],
+    quote:"Move not unless you see an advantage; use not your troops unless there is something to be gained; fight not unless the position is critical.",
+    verses:[
+      "No ruler should put troops into the field merely to gratify his own spleen; no general should fight a battle simply out of pique.",
+      "Anger may in time change to gladness; vexation may be succeeded by content. But a kingdom that has once been destroyed can never come again into being.",
+      "Hence the enlightened ruler is heedful, and the good general full of caution."
+    ]
+  },
+  {
+    n:13, name:"The Use of Spies", tag:"Foreknowledge is the key to victory",
+    summary:"The greatest general achieves results through foreknowledge — intelligence about the enemy's dispositions, plans, and conditions. This intelligence cannot come from spirits or deduction alone, but from men. Five classes of spies exist, and their coordination creates 'divine manipulation.' The converted spy — the enemy's spy turned to your service — is the most valuable of all.",
+    keys:["Foreknowledge is the key to achieving extraordinary results","Five types of spies: local, inward, converted, doomed, surviving","The converted spy is the most valuable asset","Treat your spies with the utmost liberality"],
+    quote:"What enables the wise sovereign and the good general to strike and conquer, and achieve things beyond the reach of ordinary men, is FOREKNOWLEDGE.",
+    verses:[
+      "Hostile armies may face each other for years, striving for the victory which is decided in a single day.",
+      "Knowledge of the enemy's dispositions can only be obtained from other men.",
+      "Hence it is only the enlightened ruler and the wise general who will use the highest intelligence of the army for purposes of spying and thereby they achieve great results."
+    ]
+  }
+];
+
+// ════════════════════════════════════
+//  BOOK META
+// ════════════════════════════════════
+const BOOKS = {
+  laws48: { title:'The 48 Laws of Power', author:'Robert Greene', chapters: LAWS, type:'laws' },
+  artofwar: { title:'The Art of War', author:'Sun Tzu', chapters: ART_OF_WAR_CHAPTERS, type:'artofwar' }
+};
+
+// ════════════════════════════════════
+//  OPEN BOOK (LIST VIEW)
+// ════════════════════════════════════
+function openBookView(bookId) {
+  currentBookId = bookId;
+  currentBookData = BOOKS[bookId];
+  document.getElementById('lawsBookTitle').textContent = currentBookData.title;
+  document.getElementById('lawsBookSubtitle').textContent = currentBookData.author;
+  renderLawsList();
+  updateProgress();
+  showView('laws');
+}
+
+function renderLawsList() {
+  if (!currentBookData) return;
+  const list = document.getElementById('lawsList');
+  if (!list) return;
+  const chapters = currentBookData.chapters;
+  list.innerHTML = chapters.map((ch, i) => {
+    const key = `${currentBookId}_${i}`;
+    const isRead = readLaws.has(key);
+    return `<div class="law-row${isRead ? ' read' : ''}" onclick="openDetail(${i})" style="animation-delay:${i*0.02}s">
+      <div class="law-num">${ch.n}</div>
+      <div class="law-info">
+        <div class="law-name">${ch.name}</div>
+        <div class="law-tag">${ch.tag}</div>
+      </div>
+      <div class="law-check">✓</div>
+    </div>`;
+  }).join('');
+}
+
+function updateProgress() {
+  if (!currentBookData) return;
+  const total = currentBookData.chapters.length;
+  const doneCount = currentBookData.chapters.filter((_, i) => readLaws.has(`${currentBookId}_${i}`)).length;
+  const pct = total > 0 ? (doneCount / total * 100) : 0;
+  const fill = document.getElementById('progressFill');
+  const label = document.getElementById('progressLabel');
+  if (fill) fill.style.width = pct + '%';
+  if (label) label.textContent = `${doneCount} / ${total} read`;
+}
+
+// ════════════════════════════════════
+//  DETAIL VIEW
+// ════════════════════════════════════
+function openDetail(index) {
+  if (!currentBookData) return;
+  currentLawIndex = index;
+  renderDetail(index);
+  showView('detail');
+}
+
+function renderDetail(index) {
+  const ch = currentBookData.chapters[index];
+  if (!ch) return;
+  const key = `${currentBookId}_${index}`;
+  const isRead = readLaws.has(key);
+  const bookLabel = currentBookData.type === 'artofwar' ? `Chapter ${ch.n} — ${currentBookData.title}` : `Law ${ch.n} — ${currentBookData.title}`;
+
+  document.getElementById('detailOverline').textContent = bookLabel;
+  document.getElementById('detailTitle').textContent = ch.name;
+  document.getElementById('detailTagline').textContent = ch.tag;
+
+  const markBtn = document.getElementById('markBtn');
+  markBtn.textContent = isRead ? '✓ Marked as Read' : 'Mark as Read';
+  markBtn.className = 'mark-btn' + (isRead ? ' done' : '');
+
+  // Build body
+  let html = '';
+
+  // Summary
+  html += `<div class="section-block"><h3>Overview</h3><p>${ch.summary}</p></div>`;
+
+  // Quote
+  if (ch.quote) {
+    html += `<div class="pull-quote"><p>"${ch.quote}"</p></div>`;
+  }
+
+  // Key points
+  if (ch.keys && ch.keys.length) {
+    html += `<div class="section-block"><h3>Key Principles</h3><ul>${ch.keys.map(k => `<li>${k}</li>`).join('')}</ul></div>`;
+  }
+
+  // Verses (Art of War)
+  if (ch.verses && ch.verses.length) {
+    html += `<div class="section-block"><h3>From the Text</h3>${ch.verses.map(v => `<p style="margin-bottom:14px;font-family:'EB Garamond',serif;font-size:16px;line-height:1.8;color:var(--text-dim);">"${v}"</p>`).join('')}</div>`;
+  }
+
+  document.getElementById('detailBody').innerHTML = html;
+
+  // Nav buttons
+  document.getElementById('prevLaw').disabled = index === 0;
+  document.getElementById('nextLaw').disabled = index === currentBookData.chapters.length - 1;
+}
+
+function navLaw(dir) {
+  const newIndex = currentLawIndex + dir;
+  if (newIndex < 0 || newIndex >= currentBookData.chapters.length) return;
+  currentLawIndex = newIndex;
+  renderDetail(currentLawIndex);
+  window.scrollTo(0, 0);
+}
+
+function toggleRead() {
+  const key = `${currentBookId}_${currentLawIndex}`;
+  if (readLaws.has(key)) { readLaws.delete(key); } else { readLaws.add(key); }
+  renderDetail(currentLawIndex);
+  updateProgress();
+  renderLawsList();
+  saveProgress();
+}
+
+// ════════════════════════════════════
+//  HIGHLIGHTS & NOTES
+// ════════════════════════════════════
+function openHighlight() {
+  const ch = currentBookData.chapters[currentLawIndex];
+  noteModalMode = 'highlight';
+  document.getElementById('noteModalTitle').textContent = `✦ Highlight from "${ch.name}"`;
+  document.getElementById('noteModalText').value = ch.quote ? `"${ch.quote}"` : '';
+  document.getElementById('noteModalText').placeholder = 'Paste or type the passage you want to highlight…';
+  document.getElementById('noteModal').classList.add('visible');
+}
+
+function openNote() {
+  const ch = currentBookData.chapters[currentLawIndex];
+  noteModalMode = 'note';
+  document.getElementById('noteModalTitle').textContent = `✎ Note on "${ch.name}"`;
+  document.getElementById('noteModalText').value = '';
+  document.getElementById('noteModalText').placeholder = 'Write your thoughts, reflections, or questions…';
+  document.getElementById('noteModal').classList.add('visible');
+}
+
+function closeNoteModal() {
+  document.getElementById('noteModal').classList.remove('visible');
+  noteModalMode = null;
+}
+
+function saveNote() {
+  const text = document.getElementById('noteModalText').value.trim();
+  if (!text) { closeNoteModal(); return; }
+  const ch = currentBookData.chapters[currentLawIndex];
+  const annotation = {
+    id: Date.now() + Math.random(),
+    bookId: currentBookId,
+    bookTitle: currentBookData.title,
+    lawIndex: currentLawIndex,
+    lawTitle: ch.name,
+    type: noteModalMode,
+    text,
+    ts: Date.now()
+  };
+  annotations.push(annotation);
+  saveAnnotations();
+  closeNoteModal();
+  showStatus('Saved ✓', 'saved');
+}
+
+function deleteAnnotation(id) {
+  annotations = annotations.filter(a => a.id !== id);
+  saveAnnotations();
+  renderNotes();
+}
+
+function renderNotes() {
+  const list = document.getElementById('notesList');
+  if (!list) return;
+  if (!annotations.length) {
+    list.innerHTML = '<div class="notes-empty">No highlights or notes yet.<br>Start reading to annotate.</div>';
+    return;
+  }
+  const sorted = [...annotations].sort((a, b) => b.ts - a.ts);
+  list.innerHTML = sorted.map(a => `
+    <div class="note-card ${a.type === 'highlight' ? 'is-highlight' : ''}">
+      <div class="note-meta">
+        <span class="note-book-tag">${a.bookTitle}</span>
+        <span class="note-chapter">${a.lawTitle}</span>
+      </div>
+      <div class="${a.type === 'highlight' ? 'note-type-hl' : 'note-type-note'}">${a.type === 'highlight' ? '✦ HIGHLIGHT' : '✎ NOTE'}</div>
+      <div class="note-text">${a.text}</div>
+      <button class="note-delete" onclick="deleteAnnotation(${a.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ════════════════════════════════════
+//  SEARCH
+// ════════════════════════════════════
+function handleSearch(q) {
+  const panel = document.getElementById('searchPanel');
+  const list = document.getElementById('searchResultsList');
+  const title = document.getElementById('searchResultsTitle');
+  q = q.trim();
+  if (!q || q.length < 2) { panel.classList.remove('visible'); return; }
+
+  const results = [];
+  Object.entries(BOOKS).forEach(([bookId, book]) => {
+    book.chapters.forEach((ch, i) => {
+      const searchable = [ch.name, ch.tag, ch.summary, ...(ch.keys||[]), ch.quote||'', ...(ch.verses||[])].join(' ').toLowerCase();
+      if (searchable.includes(q.toLowerCase())) {
+        const snippet = findSnippet(ch.summary || '', q);
+        results.push({ bookId, bookTitle: book.title, chIndex: i, chName: ch.name, snippet });
+      }
+    });
+  });
+
+  panel.classList.toggle('visible', results.length > 0);
+  if (!results.length) return;
+  title.textContent = `${results.length} result${results.length !== 1 ? 's' : ''} for "${q}"`;
+  list.innerHTML = results.slice(0, 12).map(r => `
+    <div class="search-result-item" onclick="openSearchResult('${r.bookId}', ${r.chIndex})">
+      <div class="search-result-book">${r.bookTitle}</div>
+      <div class="search-result-title">${highlight(r.chName, q)}</div>
+      <div class="search-result-snippet">${highlight(r.snippet, q)}</div>
+    </div>
+  `).join('');
+}
+
+function findSnippet(text, q) {
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return text.slice(0, 100) + '…';
+  const start = Math.max(0, idx - 30);
+  const end = Math.min(text.length, idx + q.length + 60);
+  return (start > 0 ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '');
+}
+
+function highlight(text, q) {
+  if (!q) return text;
+  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.replace(re, '<span class="search-highlight">$1</span>');
+}
+
+function openSearchResult(bookId, chIndex) {
+  closeSearch();
+  document.getElementById('searchInput').value = '';
+  currentBookId = bookId;
+  currentBookData = BOOKS[bookId];
+  openDetail(chIndex);
+}
+
+function closeSearch() {
+  document.getElementById('searchPanel').classList.remove('visible');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-search') && !e.target.closest('#searchPanel')) closeSearch();
+});
+
+// ════════════════════════════════════
+//  READER (48 Laws full book)
+// ════════════════════════════════════
+function buildBookPages() {
+  const pages = [];
+  // Cover spread
+  pages.push([
+    `<div class="page-body">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:40px 20px;">
+        <div style="font-family:'Playfair Display',serif;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:#8a6d2f;margin-bottom:20px;">Robert Greene</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:#2a1a08;line-height:1.1;margin-bottom:12px;">THE 48 LAWS<br>OF POWER</div>
+        <div style="width:40px;height:1px;background:#b89a5a;margin:16px auto;"></div>
+        <div style="font-family:'EB Garamond',serif;font-size:13px;color:#8a7050;font-style:italic;">A masterwork of strategy and human nature</div>
+      </div>
+    </div>`,
+    `<div class="page-body">
+      <div style="padding-top:40px;">
+        <div style="font-family:'Playfair Display',serif;font-size:13px;color:#5a4530;text-align:center;margin-bottom:24px;letter-spacing:0.06em;">PREFACE</div>
+        <p>The 48 Laws of Power is the definitive guide to the dynamics of power — how it is gained, preserved, and lost. Drawing on three thousand years of history, Robert Greene distills the essence of power into forty-eight laws.</p>
+        <p>Power is endlessly seductive and dangerous. The world has always been filled with danger — the cunning and the brutal — and knowing the game of power requires mastery of these timeless laws.</p>
+        <p>These laws are amoral, ruthless, and realistic. They can be used for good or ill, defense or offense. The wisest learn them to recognize power's play in every interaction.</p>
+      </div>
+    </div>`
+  ]);
+  // One spread per law
+  LAWS.forEach(law => {
+    pages.push([
+      `<div class="page-header-title">The 48 Laws of Power</div>
+       <div class="page-body">
+         <h2>Law ${law.n}: ${law.name}</h2>
+         <div style="font-family:'EB Garamond',serif;font-size:14px;font-style:italic;color:#7a6040;margin-bottom:18px;text-align:center;">${law.tag}</div>
+         <p>${law.summary}</p>
+         ${law.quote ? `<blockquote><p>${law.quote}</p></blockquote>` : ''}
+       </div>`,
+      `<div class="page-header-title">Law ${law.n}</div>
+       <div class="page-body">
+         <h3>Keys to Power</h3>
+         ${law.keys.map(k => `<p>— ${k}</p>`).join('')}
+       </div>`
+    ]);
+  });
+  return pages;
+}
+
+function openBook(bookId, startSpread = 0) {
+  currentBookId = bookId;
+  if (bookId === 'laws48') {
+    bookPages = buildBookPages();
+    document.getElementById('readerTitle').textContent = 'The 48 Laws of Power — Robert Greene';
+    currentSpread = startSpread;
+    renderSpread(currentSpread);
+    showView('reader');
+  }
+}
+
+function renderSpread(index) {
+  const left  = document.getElementById('pageLeft');
+  const right = document.getElementById('pageRight');
+  if (!left || !right) return;
+  const total  = bookPages.length;
+  const spread = bookPages[index] || ['', ''];
+  left.className  = 'book-page left';
+  right.className = 'book-page right';
+  left.innerHTML  = spread[0] + `<div class="page-footer">${index * 2 + 1}</div>`;
+  right.innerHTML = spread[1] + `<div class="page-footer">${index * 2 + 2}</div>`;
+  left.scrollTop  = 0; right.scrollTop = 0;
+  const pageNum    = index * 2 + 1;
+  const totalPages = total * 2;
+  document.getElementById('readerLocation').textContent = `Pages ${pageNum}–${pageNum + 1} of ${totalPages}`;
+  document.getElementById('readerProgress').style.width = ((index / Math.max(total - 1, 1)) * 100) + '%';
+  document.getElementById('readerPrev').disabled = index === 0;
+  document.getElementById('readerNext').disabled = index === total - 1;
+}
+
+function turnPage(dir) {
+  const newIndex = currentSpread + dir;
+  if (newIndex < 0 || newIndex >= bookPages.length) return;
+  currentSpread = newIndex;
+  renderSpread(currentSpread);
+  saveProgress();
+}
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('view-reader').classList.contains('active')) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') turnPage(1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   turnPage(-1);
+});
+
+function toggleToc() {
+  tocVisible = !tocVisible;
+  const stage = document.getElementById('bookStage');
+  if (tocVisible) {
+    stage.innerHTML = `
+      <div style="background:var(--card-bg);border:0.5px solid var(--border);border-radius:10px;width:min(600px,95%);max-height:80%;overflow-y:auto;padding:28px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);">Table of Contents</div>
+          <button onclick="closeToc()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;">✕</button>
+        </div>
+        ${bookPages.map((_, i) => {
+          if (i === 0) return `<div class="toc-entry" onclick="jumpTo(0)"><span class="toc-num">—</span><span class="toc-name">Preface</span><span class="toc-dot"></span><span class="toc-page">p.1</span></div>`;
+          const law = LAWS[i - 1];
+          return `<div class="toc-entry" onclick="jumpTo(${i})"><span class="toc-num">${law.n}</span><span class="toc-name">${law.name}</span><span class="toc-dot"></span><span class="toc-page">p.${i*2+1}</span></div>`;
+        }).join('')}
+      </div>`;
+  } else { closeToc(); }
+}
+
+function closeToc() {
+  tocVisible = false;
+  const stage = document.getElementById('bookStage');
+  stage.innerHTML = `<div class="open-book" id="openBook"><div class="book-page left" id="pageLeft"></div><div class="book-page right" id="pageRight"></div></div>`;
+  renderSpread(currentSpread);
+}
+
+function jumpTo(index) { currentSpread = index; closeToc(); saveProgress(); }
+
+// ════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════
+function showAuth() { document.getElementById('authScreen').classList.add('visible'); }
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t, i) => {
+    t.classList.toggle('active', (mode === 'login' && i === 0) || (mode === 'signup' && i === 1));
+  });
+  document.getElementById('authBtn').textContent = mode === 'login' ? 'Sign In' : 'Create Account';
+  document.getElementById('authError').textContent = '';
+}
+
+async function authSubmit() {
+  const email    = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl    = document.getElementById('authError');
+  const btn      = document.getElementById('authBtn');
+  if (!email || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
+  btn.disabled = true; errEl.textContent = '';
+  try {
+    if (authMode === 'login') { await auth.signInWithEmailAndPassword(email, password); }
+    else { await auth.createUserWithEmailAndPassword(email, password); }
+  } catch(e) {
+    const msgs = { 'auth/user-not-found':'No account found.', 'auth/wrong-password':'Incorrect password.', 'auth/email-already-in-use':'Email already in use.', 'auth/weak-password':'Password must be 6+ characters.', 'auth/invalid-email':'Invalid email.', 'auth/invalid-credential':'Incorrect email or password.' };
+    errEl.textContent = msgs[e.code] || e.message;
+    btn.disabled = false;
+  }
+}
+
+function signOut() { auth.signOut(); }
+
+// ════════════════════════════════════
+//  STATUS BADGE
+// ════════════════════════════════════
+function showStatus(msg, type, dur = 1800) {
+  const el = document.getElementById('dbStatus');
+  if (!el) return;
+  el.textContent = msg; el.className = `db-status show ${type}`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ════════════════════════════════════
+//  DB HELPERS
+// ════════════════════════════════════
+function userPath(key) { return `powershelf/${currentUser.uid}/${key}`; }
+
+async function fbGet(key) {
+  if (!db || !currentUser) return null;
+  try { const snap = await db.ref(userPath(key)).once('value'); return snap.exists() ? snap.val() : null; }
+  catch(e) { return null; }
+}
+
+async function fbSet(key, value) {
+  if (!db || !currentUser) return;
+  showStatus('Saving…', 'saving', 9999);
+  try { await db.ref(userPath(key)).set(value); showStatus('Saved ✓', 'saved'); }
+  catch(e) { showStatus('Save failed', 'error', 4000); }
+}
+
+// ════════════════════════════════════
+//  PROGRESS SAVE / LOAD
+// ════════════════════════════════════
+async function saveProgress() {
+  if (!currentUser) return;
+  const data = { lastBook: currentBookId, lastSpread: currentSpread, readLaws: [...readLaws], savedAt: Date.now() };
+  await fbSet('progress', data);
+}
+
+async function loadProgress() {
+  if (!currentUser) return;
+  const data = await fbGet('progress');
+  if (!data) return;
+  if (Array.isArray(data.readLaws)) {
+    readLaws = new Set(data.readLaws);
+    if (currentBookData) { updateProgress(); renderLawsList(); }
+  }
+  if (data.lastBook && data.lastSpread != null) {
+    const banner = document.getElementById('continueBanner');
+    const book = BOOKS[data.lastBook];
+    if (!book) return;
+    document.getElementById('continueTitle').textContent = book.title;
+    document.getElementById('continueSubtitle').textContent = `Spread ${data.lastSpread + 1}`;
+    document.getElementById('continueBtn').dataset.book    = data.lastBook;
+    document.getElementById('continueBtn').dataset.spread  = data.lastSpread;
+    banner.classList.add('visible');
+  }
+}
+
+function continueReading() {
+  const btn    = document.getElementById('continueBtn');
+  const book   = btn.dataset.book;
+  const spread = parseInt(btn.dataset.spread, 10);
+  openBook(book, spread);
+}
+
+// ════════════════════════════════════
+//  ANNOTATIONS SAVE / LOAD
+// ════════════════════════════════════
+async function saveAnnotations() {
+  if (!currentUser) { renderNotes(); return; }
+  await fbSet('annotations', annotations);
+  renderNotes();
+}
+
+async function loadAnnotations() {
+  if (!currentUser) return;
+  const data = await fbGet('annotations');
+  if (Array.isArray(data)) { annotations = data; renderNotes(); }
+}
+</script>
+</body>
+</html>
