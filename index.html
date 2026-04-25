@@ -2242,26 +2242,46 @@ function closeRequestModal() {
 async function submitBookRequest() {
   const title = document.getElementById('reqTitle').value.trim();
   if (!title) {
+    document.getElementById('reqTitle').style.borderColor = 'var(--red)';
     document.getElementById('reqTitle').focus();
     return;
   }
+  document.getElementById('reqTitle').style.borderColor = '';
   const author = document.getElementById('reqAuthor').value.trim();
   const note = document.getElementById('reqNote').value.trim();
   const btn = document.getElementById('reqSubmitBtn');
   btn.disabled = true;
   btn.textContent = 'Submitting…';
+
+  // Use Firebase's anonymous sign-in so unauthenticated users can still write
+  let writeDb = db;
+  if (!writeDb) {
+    btn.disabled = false;
+    btn.textContent = 'Submit Request';
+    showStatus('Database not available', 'error', 3000);
+    return;
+  }
+
   try {
-    const ref = db ? db.ref('powershelf_requests').push() : null;
-    if (ref) {
-      await ref.set({ title, author, note, ts: Date.now(), status: 'pending' });
+    // If no user is signed in, sign in anonymously so the write is allowed
+    if (!firebase.auth().currentUser) {
+      await firebase.auth().signInAnonymously();
     }
+    await writeDb.ref('powershelf_requests').push({
+      title,
+      author: author || '',
+      note: note || '',
+      ts: Date.now(),
+      status: 'pending'
+    });
     document.getElementById('reqActions').style.display = 'none';
     document.getElementById('reqSuccess').style.display = 'block';
     setTimeout(closeRequestModal, 2400);
   } catch(e) {
+    console.error('Request submit error:', e);
     btn.disabled = false;
     btn.textContent = 'Submit Request';
-    showStatus('Failed to submit', 'error', 3000);
+    showStatus('Failed to submit: ' + (e.message || 'unknown error'), 'error', 4000);
   }
 }
 
