@@ -883,6 +883,13 @@ body::before {
         <input class="auth-input" id="authEmail" type="email" placeholder="your@email.com" />
         <label class="auth-label">Password</label>
         <input class="auth-input" id="authPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()" />
+        <div id="confirmPasswordWrap" style="display:none;">
+          <label class="auth-label">Confirm Password</label>
+          <input class="auth-input" id="authPasswordConfirm" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()" />
+        </div>
+        <div id="forgotWrap" style="text-align:right;margin-top:-8px;margin-bottom:14px;">
+          <button onclick="sendPasswordReset()" style="background:none;border:none;color:var(--muted);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;padding:0;transition:color 0.2s;" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--muted)'">Forgot password?</button>
+        </div>
         <div class="auth-error" id="authError"></div>
         <button class="auth-submit" id="authBtn" onclick="authSubmit()">Sign In</button>
       </div>
@@ -1153,6 +1160,19 @@ body::before {
       <div class="req-actions" id="reqActions">
         <button class="req-cancel" onclick="closeRequestModal()">Cancel</button>
         <button class="req-submit" id="reqSubmitBtn" onclick="submitBookRequest()">Submit Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUEST AUTH GATE MODAL -->
+  <div class="req-modal-overlay" id="reqAuthGate">
+    <div class="req-modal" style="text-align:center;">
+      <div style="font-size:36px;margin-bottom:12px;">📚</div>
+      <h3 style="margin-bottom:10px;">Sign Up to Request a Book</h3>
+      <p style="margin-bottom:24px;">You need a free account to request books. Join the shelf and help shape the library.</p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="req-cancel" onclick="closeReqAuthGate()">Maybe Later</button>
+        <button class="req-submit" style="flex:none;padding:11px 24px;" onclick="goSignUpFromReq()">Sign Up — It's Free</button>
       </div>
     </div>
   </div>
@@ -1734,6 +1754,10 @@ function switchAuthTab(mode) {
   });
   document.getElementById('authBtn').textContent = mode === 'login' ? 'Sign In' : 'Create Account';
   document.getElementById('authError').textContent = '';
+  document.getElementById('authError').style.color = '';
+  document.getElementById('confirmPasswordWrap').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('forgotWrap').style.display = mode === 'login' ? 'block' : 'none';
+  if (mode === 'signup') document.getElementById('authPasswordConfirm').value = '';
 }
 
 async function authSubmit() {
@@ -1742,6 +1766,11 @@ async function authSubmit() {
   const errEl    = document.getElementById('authError');
   const btn      = document.getElementById('authBtn');
   if (!email || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
+  if (authMode === 'signup') {
+    const confirm = document.getElementById('authPasswordConfirm').value;
+    if (!confirm) { errEl.textContent = 'Please confirm your password.'; return; }
+    if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; return; }
+  }
   btn.disabled = true; errEl.textContent = '';
   try {
     if (authMode === 'login') { await auth.signInWithEmailAndPassword(email, password); }
@@ -1750,6 +1779,21 @@ async function authSubmit() {
     const msgs = { 'auth/user-not-found':'No account found.', 'auth/wrong-password':'Incorrect password.', 'auth/email-already-in-use':'Email already in use.', 'auth/weak-password':'Password must be 6+ characters.', 'auth/invalid-email':'Invalid email.', 'auth/invalid-credential':'Incorrect email or password.' };
     errEl.textContent = msgs[e.code] || e.message;
     btn.disabled = false;
+  }
+}
+
+async function sendPasswordReset() {
+  const email = document.getElementById('authEmail').value.trim();
+  const errEl = document.getElementById('authError');
+  if (!email) { errEl.style.color = 'var(--gold)'; errEl.textContent = 'Enter your email above first.'; return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    errEl.style.color = 'var(--teal)';
+    errEl.textContent = '✓ Reset email sent! Check your inbox.';
+  } catch(e) {
+    errEl.style.color = 'var(--red, #c08080)';
+    const msgs = { 'auth/user-not-found': 'No account found with that email.', 'auth/invalid-email': 'Invalid email address.' };
+    errEl.textContent = msgs[e.code] || e.message;
   }
 }
 
@@ -1980,12 +2024,26 @@ function escapeHtml(str) {
 //  BOOK REQUEST MODAL
 // ════════════════════════════════════
 function openRequestModal() {
+  if (!currentUser) {
+    document.getElementById('reqAuthGate').classList.add('visible');
+    return;
+  }
   document.getElementById('reqTitle').value = '';
   document.getElementById('reqAuthor').value = '';
   document.getElementById('reqNote').value = '';
   document.getElementById('reqSuccess').style.display = 'none';
   document.getElementById('reqActions').style.display = 'flex';
   document.getElementById('reqModal').classList.add('visible');
+}
+
+function closeReqAuthGate() {
+  document.getElementById('reqAuthGate').classList.remove('visible');
+}
+
+function goSignUpFromReq() {
+  closeReqAuthGate();
+  showAuth();
+  switchAuthTab('signup');
 }
 
 function closeRequestModal() {
@@ -2048,6 +2106,11 @@ async function submitBookRequest() {
 // Close request modal on overlay click
 document.getElementById('reqModal').addEventListener('click', function(e) {
   if (e.target === this) closeRequestModal();
+});
+
+// Close auth gate on overlay click
+document.getElementById('reqAuthGate').addEventListener('click', function(e) {
+  if (e.target === this) closeReqAuthGate();
 });
 
 </script>
